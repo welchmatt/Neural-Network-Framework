@@ -1,7 +1,7 @@
 # Neural-Network-Framework
 A high-level neural network framework, written in Fortran with no external libraries.  Provides support for convolutional, pooling, and dense layers, with an API inspired by Keras.
 
-Here's an example CNN to predict on the MNIST dataset (see Tests below, and test_mnist.f08 in src folder):
+The following is an example CNN to predict on the MNIST dataset (see Tests below, and test_mnist.f08 in src folder).  The name "snn" stands for "sequential neural network," as in Keras, which is used as the foundation for adding different layers.
 ```fortran
 snn => create_snn()
 
@@ -74,8 +74,6 @@ accuracy = snn%snn_one_hot_accuracy(conv_input   = test_images, &
 ```
 
 Without much fine-tuning of the model's structure, the above version consistently achieves an accuracy of around 95%.
-
-The name "snn" stands for "sequential neural network," as in Keras, which is used as the foundation for adding different layers.
 
 ## Prerequisites
 * GFortran 8.3.0 (for Fortran 2008 support)
