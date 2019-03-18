@@ -134,4 +134,4 @@ make clean
 ## Acknowledgments
 I developed this framework as a fun way to apply my knowledge of multivariable calculus and linear algebra.  In the process, I was able to learn a lot about the foundations of deep learning, the math behind it, and also develop an intuitive sense for what math is actually necessary to bring such ideas to life.  Please see the "whiteboards" folder for some snippets of my work!
 
-Of course, this was not meant to rival any existing neural network framework in terms of efficiency, and should not be used in any mission critical code.  However, there are some clear paths to improvement that I am excited to explore in the future. 
+Of course, this was not meant to rival any existing neural network framework in terms of efficiency, and should not be used in any mission critical code.  Nonetheless, there are some clear paths to improvement that I am excited to explore in the future. 
