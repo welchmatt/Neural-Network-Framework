@@ -1,0 +1,947 @@
+!-------------------------------------------------------------------------------
+! neural network implementation that utilizes ConvLayers, PoolLayers, and &
+! DenseLayers in "sequence" (hence the name sequential - based on Keras library)
+!
+! serves as a wrapper for a ConvNN for ConvLayers and PoolLayers, followed by a
+! DenseNN for DenseLayers
+!
+! if both networks are present, this function handles the transfer of data from
+! ConvNN through DenseNN in forward propagation, and the opposite way for
+! backpropagation
+!
+! otherwise, it is also possible to only use the DenseNN and not ConvNN;
+! support for ConvNN and not DenseNN (for a Fully Convolutional Network) can be
+! implemented by simply adjusting the cnn_out_delta function to accept labels
+! and a loss function, and to calculate the proper derivative; for now, this
+! feature is not needed, because I am not yet trying to model a Fully
+! Convolutional Network. see conv_neural_net.f08 for more details
+!
+! therefore, the current functionality includes checks for ensuring that if
+! ConvLayers are present, they must be followed by DenseLayers
+!-------------------------------------------------------------------------------
+! Matt Welch
+!-------------------------------------------------------------------------------
+
+module sequential_neural_net
+use net_helper_procedures
+use conv_layer_definitions
+use dense_layer_definitions
+use conv_neural_net
+use dense_neural_net
+implicit none
+
+!===============================================================================
+!===============================================================================
+! procedures with 2D array input require variables-as-columns form
+!===============================================================================
+!===============================================================================
+
+!===============================================================================
+! types
+!===============================================================================
+
+! represents a neural network with support for ConvLayers (with PoolLayers)
+! followed by DenseLayers 'in sequence', or only DenseLayers
+!
+! ConvLayers and PoolLayers wrapped by ConvNN, DenseLayers wrapped by DenseNN
+type :: SeqNN
+    class(ConvNN), pointer  :: cnn
+    class(DenseNN), pointer :: dnn
+    logical                 :: cnn_done, is_init ! mutex locks for creation
+    integer                 :: batch_size
+contains
+    ! wrapper functions that initiate ConvNN/DenseNN traversals, and also handle
+    ! transferring data between them. includes higher level proceduers for
+    ! testing and training the overall network
+    procedure, pass         :: snn_add_conv_layer, snn_add_pool_layer, &
+                               snn_add_dense_layer, snn_init, snn_forw_prop, &
+                               snn_cnn_out_delta, snn_back_prop, snn_update, &
+                               snn_fit, snn_one_hot_accuracy, &
+                               snn_regression_loss, snn_predict, snn_summary
+end type
+contains
+
+!===============================================================================
+! constructors / destructors
+!===============================================================================
+
+!-------------------------------------------------------------------------------
+! constructs a new SeqNN
+!-------------------------------------------------------------------------------
+! 
+!-------------------------------------------------------------------------------
+! returns :: (SeqNN pointer) new SeqNN
+!-------------------------------------------------------------------------------
+function create_snn()
+    class(SeqNN), pointer :: create_snn
+
+    allocate(create_snn)
+    create_snn%is_init =  .false.
+    create_snn%cnn     => null()
+    create_snn%dnn     => null()
+
+    ! can add ConvLayers until first DenseLayer added;
+    ! cannot complete snn until a DenseLayer is added
+    create_snn%cnn_done = .false.
+end function
+
+!-------------------------------------------------------------------------------
+! deallocate a SeqNN
+!-------------------------------------------------------------------------------
+! snn:      (SeqNN pointer)
+!-------------------------------------------------------------------------------
+! alters :: snn and the ConvNN and DenseNN it wraps are deallocated
+!-------------------------------------------------------------------------------
+subroutine deallocate_snn(snn)
+    class(SeqNN), pointer :: snn
+
+    if (snn%is_init) then
+        if (associated(snn%cnn)) then
+            call deallocate_cnn(snn%cnn)
+        end if
+
+        call deallocate_dnn(snn%dnn)
+        deallocate(snn)
+    end if
+end subroutine
+
+!===============================================================================
+! SeqNN procedures
+!   *** all require input and labels in variables-as-columns form
+!===============================================================================
+
+!-------------------------------------------------------------------------------
+! create and add a new ConvLayer to tail of this SeqNN's ConvNN linked list
+!
+! input_dims must be specified to first call to this subroutine
+!-------------------------------------------------------------------------------
+! this:        (SeqNN - implicitly passed)
+! kernels:     (integer) kernels in new layer
+! kernel_dims: (integer(2)) (height, width) of each kernel channel
+! stride:      (integer(2)) size of kernel moves in (y, x) directions
+! activ:       (characters) activation function
+! padding:     (characters) padding type
+!
+! input_dims:  (optional - integer(3)) (height, width, channels) of one input
+!-------------------------------------------------------------------------------
+! alters ::    new ConvLayer appended to this SeqNN's ConvNN linked list
+!-------------------------------------------------------------------------------
+subroutine snn_add_conv_layer(this, kernels, kernel_dims, stride, activ, &
+                              padding, input_dims)
+    class(SeqNN)                  :: this
+    integer, intent(in)           :: kernels, kernel_dims(2), stride(2)
+    character(*), intent(in)      :: activ, padding
+    integer, intent(in), optional :: input_dims(3)
+
+    if (this%cnn_done) then
+        print *, '---------------------------------------------'
+        print *, '(sequential_neural_net :: snn_add_conv_layer)'
+        print *, 'cannot add new ConvLayer.'
+        print *, '---------------------------------------------'
+        stop -1
+    end if
+
+    if (.not. associated(this%cnn)) then
+        ! creating new cnn; requires input_dims
+        if (present(input_dims)) then
+            this%cnn => create_cnn(input_dims)
+        else
+            print *, '---------------------------------------------'
+            print *, '(sequential_neural_net :: snn_add_conv_layer)'
+            print *, 'must supply input_dims for first ConvLayer.'
+            print *, '---------------------------------------------'
+            stop -1
+        end if
+    else
+        ! cnn already exists; do not allow input_dims
+        if (present(input_dims)) then
+            print *, '---------------------------------------------'
+            print *, '(sequential_neural_net :: snn_add_conv_layer)'
+            print *, 'only pass input_dims to first ConvLayer.'
+            print *, '---------------------------------------------'
+            stop -1
+        end if
+    end if
+
+    call this%cnn%cnn_add_layer(kernels, kernel_dims, stride, activ, padding)
+end subroutine
+
+!-------------------------------------------------------------------------------
+! create and add a new PoolLayer to tail of this SeqNN's ConvNN linked list
+!-------------------------------------------------------------------------------
+! this:        (SeqNN - implicitly passed)
+! kernel_dims: (integer(2)) (height, width) of pool kernel
+! stride:      (integer(2)) size of kernel moves in (y, x) directions
+! pool:        (characters) pool type
+! padding:     (characters) padding type
+!-------------------------------------------------------------------------------
+! alters ::    new ConvLayer appended to this SeqNN's ConvNN linked list
+!-------------------------------------------------------------------------------
+subroutine snn_add_pool_layer(this, kernel_dims, stride, pool, padding)
+    class(SeqNN)             :: this
+    integer, intent(in)      :: kernel_dims(2), stride(2)
+    character(*), intent(in) :: pool, padding
+
+    if (this%cnn_done) then
+        print *, '---------------------------------------------'
+        print *, '(sequential_neural_net :: snn_add_pool_layer)'
+        print *, 'cannot add new PoolLayer.'
+        print *, '---------------------------------------------'
+        stop -1
+    end if
+
+    if (.not. associated(this%cnn)) then
+        print *, '---------------------------------------------'
+        print *, '(sequential_neural_net :: snn_add_pool_layer)'
+        print *, 'PoolLayer must follow ConvLayer.'
+        print *, '---------------------------------------------'
+        stop -1
+    end if
+
+    call this%cnn%cnn_add_pool_layer(kernel_dims, stride, pool, padding)
+end subroutine
+
+!-------------------------------------------------------------------------------
+! create and add a new DenseLayer to tail of this SeqNN's DenseNN linked list
+!
+! input_nodes must be specified to first call to this subroutine if NO
+! ConvLayers added before it (in which case, SeqNN is a pure DenseNN)
+!-------------------------------------------------------------------------------
+! this:        (SeqNN - implicitly passed)
+! out_nodes:   (integer) nodes output by new DenseLayer
+! activation:  (characters) activation function
+!
+! input_nodes: (optional - integer) input variables
+!-------------------------------------------------------------------------------
+! alters ::    new DenseLayer appended to this SeqNN's DenseNN linked list
+!-------------------------------------------------------------------------------
+subroutine snn_add_dense_layer(this, out_nodes, activation, input_nodes)
+    class(SeqNN)                  :: this
+    integer, intent(in)           :: out_nodes
+    character(*), intent(in)      :: activation
+    integer, intent(in), optional :: input_nodes
+
+    if (.not. this%cnn_done) then
+        ! do not allow adding more ConvLayers after this new DenseLayers
+        this%cnn_done = .true.
+
+        if (associated(this%cnn)) then
+            ! create dnn "appended" to cnn (if one exists); input_nodes from cnn
+            if (present(input_nodes)) then
+                print *, '----------------------------------------------'
+                print *, '(sequential_neural_net :: snn_add_dense_layer)'
+                print *, 'only pass input_dims to first DenseLayer.'
+                print *, '----------------------------------------------'
+                stop -1
+            end if
+
+            ! each node in cnn output gets node in dnn
+            this%dnn => create_dnn(this%cnn%out_count)
+        else
+            ! no cnn, create dnn on its own; requires input_nodes
+            if (present(input_nodes)) then
+                this%dnn => create_dnn(input_nodes)
+            else
+                print *, '----------------------------------------------'
+                print *, '(sequential_neural_net :: snn_add_dense_layer)'
+                print *, 'must supply input_nodes for first DenseLayer.'
+                print *, '----------------------------------------------'
+                stop -1
+            end if
+        endif
+    else
+        ! not creating the dnn this time; do not allow input_nodes
+        if (present(input_nodes)) then
+            print *, '----------------------------------------------'
+            print *, '(sequential_neural_net :: snn_add_dense_layer)'
+            print *, 'only pass input_dims to first DenseLayer.'
+            print *, '----------------------------------------------'
+            stop -1
+        end if
+    end if
+
+    call this%dnn%dnn_add_layer(out_nodes, activation)
+end subroutine
+
+!-------------------------------------------------------------------------------
+! initialize this SeqNN's ConvNN and DenseNN, and specify batch size to process
+!-------------------------------------------------------------------------------
+! this:       (SeqNN - implicitly passed)
+! batch_size: (integer) examples to process before back prop
+!-------------------------------------------------------------------------------
+! alters ::   this SeqNN's ConvNN and DenseNN are alloacted and become usable
+!-------------------------------------------------------------------------------
+subroutine snn_init(this, batch_size)
+    class(SeqNN)        :: this
+    integer, intent(in) :: batch_size
+
+    if (.not. this%cnn_done) then
+        print *, '-----------------------------------'
+        print *, '(sequential_neural_net :: snn_init)'
+        print *, 'snn must include DenseLayer(s).'
+        print *, '-----------------------------------'
+        stop -1
+    end if
+
+    this%is_init = .true.
+    this%batch_size = batch_size
+
+    if (associated(this%cnn)) then
+        call this%cnn%cnn_init(batch_size)
+    end if
+
+    call this%dnn%dnn_init(batch_size)
+end subroutine
+
+!-------------------------------------------------------------------------------
+! wrapper to forward propagate input through SeqNN's ConvNN then DenseNN
+!
+! must only pass conv_batch if ConvLayers in SeqNN, otherwise
+! must only pass dense_batch if no ConvLayers present
+!-------------------------------------------------------------------------------
+! this:        (SeqNN - implicitly passed)
+!
+! conv_batch:  (optional - real(:,:,:,:)) input batch for ConvLayers
+! dense_batch: (optional - real(:,:)) input batch for DenseLayers
+!-------------------------------------------------------------------------------
+! alters ::    this SeqNN's ConvNN and DenseNN layers' z's and a's calculated
+!-------------------------------------------------------------------------------
+subroutine snn_forw_prop(this, conv_batch, dense_batch)
+    class(SeqNN)               :: this
+    real, intent(in), optional :: conv_batch(:,:,:,:), dense_batch(:,:)
+    real, allocatable          :: dnn_batch(:,:)
+    integer                    :: i
+
+    if (associated(this%cnn)) then
+        ! cnn present; must only pass conv_batch
+        if (.not. present(conv_batch) .or. present(dense_batch)) then
+            print *, '-----------------------------------------'
+            print *, '(sequential_neural_net :: snn_forw_prop)'
+            print *, 'ConvLayers present: only pass conv_batch.'
+            print *, '-----------------------------------------'
+            stop -1
+        end if
+
+        call this%cnn%cnn_forw_prop(conv_batch)
+
+        ! flatten each cnn output prediction (3D) in batch into rows for dnn
+        allocate(dnn_batch(this%batch_size, this%cnn%out_count))
+
+        do i = 1, this%batch_size
+            ! store flattened prediction rows; check if output pooled
+            if (associated(this%cnn%output%next_pool)) then
+                ! pooled shape
+                dnn_batch(i,:) = reshape(this%cnn%output%next_pool%a(:,:,:,i), &
+                                         [this%cnn%output%next_pool%out_count])
+            else
+                ! regular shape (no pool)
+                dnn_batch(i,:) = reshape(this%cnn%output%a(:,:,:,i), &
+                                         [this%cnn%output%out_count])
+            end if
+        end do
+    else
+        ! cnn not present; must only pass dense_batch
+        if (.not. present(dense_batch) .or. present(conv_batch)) then
+            print *, '----------------------------------------------'
+            print *, '(sequential_neural_net :: snn_forw_prop)'
+            print *, 'ConvLayers not present: only pass dense_batch.'
+            print *, '----------------------------------------------'
+            stop -1
+        end if
+
+        dnn_batch = dense_batch
+    end if
+
+    ! forward prop through dnn (either from cnn or direct input)
+    call this%dnn%dnn_forw_prop(dnn_batch)
+end subroutine
+
+!-------------------------------------------------------------------------------
+! once deltas calculated for DenseLayers from snn_back_prop, calculate
+! derivative of cost wrt output of final ConvLayer; this connects DenseNN to
+! ConvNN in backpropagation
+!-------------------------------------------------------------------------------
+! this:     (SeqNN - implicitly passed)
+!-------------------------------------------------------------------------------
+! alters :: this SeqNN's ConvNN output ConvLayer's d is calculated
+!-------------------------------------------------------------------------------
+subroutine snn_cnn_out_delta(this)
+    class(SeqNN)      :: this
+    real, allocatable :: d_wrt_a(:,:), d_slice(:,:,:)
+    integer           :: i
+
+    ! first finf derivative of cost wrt a(L) OR pool(L) (if present);
+    ! each row in d_wrt_a is an entry in the batch
+    d_wrt_a = matmul(this%dnn%first_hid%d, transpose(this%dnn%first_hid%w))
+
+    this%cnn%output%d = 0
+
+    do i = 1, this%batch_size
+        if (associated(this%cnn%output%next_pool)) then
+            ! first reshape deltas into shape of pool output
+            d_slice = reshape(d_wrt_a(i,:), &
+                      shape(this%cnn%output%next_pool%a(:,:,:,i)))
+
+            ! must undo the pooling to find derivative wrt a's kept by pool
+            call this%cnn%output%next_pool%pool_back_prop(d_slice, i, &
+                                                          this%cnn%output%d)
+        else
+            ! no pooling to account for; reshape back to regular cnn dimensions
+            this%cnn%output%d(:,:,:,i) = reshape(d_wrt_a(i,:), &
+                                         shape(this%cnn%output%d(:,:,:,i)))
+        end if
+    end do
+
+    ! derivative of loss wrt cnn%output%z
+    this%cnn%output%d = this%cnn%output%d * &
+                        activfunc_deriv(this%cnn%output%z, &
+                                        this%cnn%output%activ)
+end subroutine
+
+!-------------------------------------------------------------------------------
+! wrapper to back propagate through SeqNN's DenseNN then ConvNN
+!-------------------------------------------------------------------------------
+! this:     (SeqNN - implicitly passed)
+! labels:   (real(:,:)) targets we are trying to predict
+! loss:     (characters) loss function
+!-------------------------------------------------------------------------------
+! alters :: this SeqNN's ConvNN and DenseNN layers' d's are calculated
+!-------------------------------------------------------------------------------
+subroutine snn_back_prop(this, labels, loss)
+    class(SeqNN)             :: this
+    real, intent(in)         :: labels(:,:)
+    character(*), intent(in) :: loss
+
+    call this%dnn%dnn_back_prop(labels, loss)
+
+    if (associated(this%cnn)) then
+        call this%snn_cnn_out_delta() ! transfer delta to cnn
+        call this%cnn%cnn_back_prop()
+    end if
+end subroutine
+
+!-------------------------------------------------------------------------------
+! wrapper to adjust kernels, weights, biases in this SeqNN's ConvNN and DenseNN
+!
+! must only pass conv_batch if ConvLayers in SeqNN, otherwise
+! must only pass dense_batch if no ConvLayers present
+!-------------------------------------------------------------------------------
+! this:        (SeqNN - implicitly passed)
+! learn_rate:  (real) scale factor for change in kernels and biases
+!
+! conv_batch:  (optional - real(:,:,:,:)) input batch for ConvLayers
+! dense_batch: (optional - real(:,:)) input batch for DenseLayers
+!-------------------------------------------------------------------------------
+! alters ::    this SeqNN's kernels, weights, biases adjusted to minimize loss
+!-------------------------------------------------------------------------------
+subroutine snn_update(this, learn_rate, conv_batch, dense_batch)
+    class(SeqNN)               :: this
+    real, intent(in)           :: learn_rate
+    real, intent(in), optional :: conv_batch(:,:,:,:), dense_batch(:,:)
+    real, allocatable          :: dnn_batch(:,:)
+    integer                    :: i
+
+    if (associated(this%cnn)) then
+        ! cnn present; must only pass conv_batch
+        if (.not. present(conv_batch) .or. present(dense_batch)) then
+            print *, '-----------------------------------------'
+            print *, '(sequential_neural_net :: snn_update)'
+            print *, 'ConvLayers present: only pass conv_batch.'
+            print *, '-----------------------------------------'
+            stop -1
+        end if
+
+        call this%cnn%cnn_update(conv_batch, learn_rate)
+
+        ! flatten each output prediction (3D) in batch into rows for dnn
+        allocate(dnn_batch(this%batch_size, this%cnn%out_count))
+
+        do i = 1, this%batch_size
+            ! store flattened prediction rows
+            if (associated(this%cnn%output%next_pool)) then
+                ! pooled shape
+                dnn_batch(i,:) = reshape(this%cnn%output%next_pool%a(:,:,:,i), &
+                                         [this%cnn%output%next_pool%out_count])
+            else
+                ! regular shape (no pool)
+                dnn_batch(i,:) = reshape(this%cnn%output%a(:,:,:,i), &
+                                         [this%cnn%output%out_count])
+            end if
+        end do
+    else
+        ! cnn not present; must only pass dense_batch
+        if (.not. present(dense_batch) .or. present(conv_batch)) then
+            print *, '----------------------------------------------'
+            print *, '(sequential_neural_net :: snn_update)'
+            print *, 'ConvLayers not present: only pass dense_batch.'
+            print *, '----------------------------------------------'
+            stop -1
+        end if
+
+        dnn_batch = dense_batch
+    end if
+
+    ! update through dnn (either from cnn or direct input)
+    call this%dnn%dnn_update(dnn_batch, learn_rate)
+end subroutine
+
+!-------------------------------------------------------------------------------
+! handles training SeqNN on all training data (inputs, labels)
+!
+! must only pass conv_input if ConvLayers in SeqNN, otherwise
+! must only pass dense_input if no ConvLayers present
+!-------------------------------------------------------------------------------
+! this:         (SeqNN - implicitly passed)
+! train_labels: (real(:,:)) all targets we are trying to predict
+! batch_size:   (integer) examples to process before back prop
+! epochs:       (integer) how many times to pass over all the training data
+! learn_rate:   (real) scale factor for change in kernels and biases
+! loss:         (characters) loss function
+!
+! conv_input:   (optional - real(:,:,:,:)) input for ConvLayers
+! dense_input:  (optional - real(:,:)) input for DenseLayers
+! verbose:      (optional - integer) 0 = none, 1 = epochs, 2 = 1 + batch status
+!-------------------------------------------------------------------------------
+! alters ::    - this SeqNN fit to minimize loss on training data
+!              - train_labels, [conv_input, dense_input] shuffled in place
+!-------------------------------------------------------------------------------
+subroutine snn_fit(this, train_labels, batch_size, epochs, learn_rate, loss, &
+                   conv_input, dense_input, verbose)
+    class(SeqNN)             :: this
+    real                     :: train_labels(:,:)
+    integer, intent(in)      :: batch_size, epochs
+    real, intent(in)         :: learn_rate
+    character(*), intent(in) :: loss
+    real, optional           :: conv_input(:,:,:,:), dense_input(:,:)
+    integer, optional        :: verbose
+    real, allocatable        :: conv_x(:,:,:,:), dense_x(:,:), labels(:,:)
+    integer                  :: batches, input_i, i, j
+
+    if (.not. this%is_init) then
+        call this%snn_init(batch_size)
+    end if
+
+    if (associated(this%cnn)) then
+        ! cnn present; must only pass conv_input
+        if (.not. present(conv_input) .or. present(dense_input)) then
+            print *, '-----------------------------------------'
+            print *, '(sequential_neural_net :: snn_fit)'
+            print *, 'ConvLayers present: only pass conv_input.'
+            print *, '-----------------------------------------'
+            stop -1
+        end if
+
+        ! whole batch count; truncating remainder skips last partial batch
+        batches = size(conv_input, dim=4) / batch_size
+    else
+        ! cnn not present; must only pass dense_input
+        if (.not. present(dense_input) .or. present(conv_input)) then
+            print *, '----------------------------------------------'
+            print *, '(sequential_neural_net :: snn_fit)'
+            print *, 'ConvLayers not present: only pass dense_input.'
+            print *, '----------------------------------------------'
+            stop -1
+        end if
+
+        ! whole batch count; truncating remainder skips last partial batch
+        batches = size(dense_input, dim=1) / batch_size
+    end if
+
+    do i = 1, epochs
+        if (present(verbose) .and. verbose > 0) then
+            print *, 'epoch:', i
+        end if
+        
+        input_i = 1 ! index of batch examples in input
+
+        ! shuffle input and labels to same new ordering (improves training)
+        if (associated(this%cnn)) then
+            call pair_shuffle_channels_4D(conv_input, train_labels)
+        else
+            call pair_shuffle_rows_2D(dense_input, train_labels)
+        end if
+        
+        do j = 1, batches
+            if (mod(j, 20) == 0) then
+                if (present(verbose) .and. verbose > 1) then
+                    print *, 'batch:', j, '/', batches
+                end if
+            end if
+
+            ! extract corresponding batches of input and labels
+            ! (slice the batch rows starting at input_i)
+            if (associated(this%cnn)) then
+                conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
+                labels = train_labels(input_i:input_i+batch_size-1, :)
+
+                call this%snn_forw_prop(conv_batch=conv_x)
+                call this%snn_back_prop(labels, loss)
+                call this%snn_update(learn_rate, conv_batch=conv_x)
+            else
+                dense_x = dense_input(input_i:input_i+batch_size-1, :)
+                labels = train_labels(input_i:input_i+batch_size-1, :)
+
+                call this%snn_forw_prop(dense_batch=dense_x)
+                call this%snn_back_prop(labels, loss)
+                call this%snn_update(learn_rate, dense_batch=dense_x)
+            end if
+
+            input_i = input_i + batch_size
+        end do
+
+        if (present(verbose) .and. verbose > 0) then
+            if (mod(i, 5) == 0) then
+                print *, '----------------------'
+                print *, 'last train batch loss:'
+                print *, lossfunc(this%dnn%output%a, labels, loss)
+                print *, '----------------------'
+            end if
+        end if
+    end do
+end subroutine
+
+!-------------------------------------------------------------------------------
+! handles checking SeqNN accuracy on all given data (input, labels);
+! only to be used with classification with one-hot encoded labels
+!
+! must only pass conv_input if ConvLayers in SeqNN, otherwise
+! must only pass dense_input if no ConvLayers present
+!-------------------------------------------------------------------------------
+! this:         (SeqNN - implicitly passed)
+! input_labels: (real(:,:)) all ONE-HOT ENCODED targets we are trying to predict
+!               *** see net_helper_procedures :: one_hot_encode_special
+!
+! conv_input:   (optional - real(:,:,:,:)) input for ConvLayers
+! dense_input:  (optional - real(:,:)) input for DenseLayers
+! verbose:      (optional - integer) 0 = none, 2 = batch status
+!-------------------------------------------------------------------------------
+! returns:     (real) this SeqNN's one-hot accuracy on the given data
+!-------------------------------------------------------------------------------
+real function snn_one_hot_accuracy(this, input_labels, &
+                                   conv_input, dense_input, verbose)
+    class(SeqNN)               :: this
+    real, intent(in)           :: input_labels(:,:)
+    real, intent(in), optional :: conv_input(:,:,:,:), dense_input(:,:)
+    integer, optional          :: verbose
+    real, allocatable          :: conv_x(:,:,:,:), dense_x(:,:), labels(:,:)
+    integer                    :: batch_size, batches, input_i, i
+    real                       :: total_correct_prob
+
+    batch_size = this%batch_size
+
+    if (associated(this%cnn)) then
+        ! cnn present; must only pass conv_input
+        if (.not. present(conv_input) .or. present(dense_input)) then
+            print *, '----------------------------------------------------'
+            print *, '(sequential_neural_net :: snn_test_one_hot_accuracy)'
+            print *, 'ConvLayers present: only pass conv_input.'
+            print *, '----------------------------------------------------'
+            stop -1
+        end if
+
+        ! whole batch count; truncating remainder skips last partial batch
+        batches = size(conv_input, dim=4) / batch_size
+    else
+        ! cnn not present; must only pass dense_input
+        if (.not. present(dense_input) .or. present(conv_input)) then
+            print *, '----------------------------------------------------'
+            print *, '(sequential_neural_net :: snn_test_one_hot_accuracy)'
+            print *, 'ConvLayers not present: only pass dense_input.'
+            print *, '----------------------------------------------------'
+            stop -1
+        end if
+
+        ! whole batch count; truncating remainder skips last partial batch
+        batches = size(dense_input, dim=1) / batch_size
+    end if
+
+    total_correct_prob = 0 ! keep total for later average
+    input_i = 1            ! index of batch examples in input
+
+    do i = 1, batches
+        if (mod(i, 20) == 0) then
+            if (present(verbose) .and. verbose > 1) then
+                print *, 'batch:', i, '/', batches
+            end if
+        end if
+
+        ! extract corresponding batches of input and labels
+        ! (slice the batch rows starting at input_i)
+        if (associated(this%cnn)) then
+            conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
+            labels = input_labels(input_i : input_i+batch_size-1, :)
+            call this%snn_forw_prop(conv_batch=conv_x)
+        else
+            dense_x = dense_input(input_i:input_i+batch_size-1, :)
+            labels = input_labels(input_i : input_i+batch_size-1, :)
+            call this%snn_forw_prop(dense_batch=dense_x)
+        end if
+
+        ! dnn%output%a has prediction vector upon completion
+        total_correct_prob = total_correct_prob + &
+                             one_hot_accuracy(this%dnn%output%a, labels)
+
+        input_i = input_i + batch_size
+    end do
+
+    snn_one_hot_accuracy = total_correct_prob / batches ! avg probability
+end function
+
+!-------------------------------------------------------------------------------
+! handles checking SeqNN loss on all given data (input, labels);
+! only to be used with regression with real-valued labels
+!
+! must only pass conv_input if ConvLayers in SeqNN, otherwise
+! must only pass dense_input if no ConvLayers present
+!-------------------------------------------------------------------------------
+! this:        (SeqNN - implicitly passed)
+! labels:      (real(:,:)) all targets we are trying to predict
+! loss:        (characters) loss function
+!
+! conv_input:  (optional - real(:,:,:,:)) input for ConvLayers
+! dense_input: (optional - real(:,:)) input for DenseLayers
+! verbose:     (optional - integer) 0 = none, 2 = batch status
+!-------------------------------------------------------------------------------
+! returns:     (real) this SeqNN's loss on the given data
+!-------------------------------------------------------------------------------
+real function snn_regression_loss(this, input_labels, loss, conv_input, &
+                                  dense_input, verbose)
+    class(SeqNN)               :: this
+    real, intent(in)           :: input_labels(:,:)
+    character(*), intent(in)   :: loss
+    real, intent(in), optional :: conv_input(:,:,:,:), dense_input(:,:)
+    integer, optional          :: verbose
+    real, allocatable          :: conv_x(:,:,:,:), dense_x(:,:), labels(:,:)
+    integer                    :: batches, input_i, i, batch_size
+    real                       :: total_loss
+
+    batch_size = this%batch_size
+
+    if (associated(this%cnn)) then
+        ! cnn present; must only pass conv_input
+        if (.not. present(conv_input) .or. present(dense_input)) then
+            print *, '----------------------------------------------------'
+            print *, '(sequential_neural_net :: snn_test_one_hot_accuracy)'
+            print *, 'ConvLayers present: only pass conv_input.'
+            print *, '----------------------------------------------------'
+            stop -1
+        end if
+
+        ! whole batch count; truncating remainder skips last partial batch
+        batches = size(conv_input, dim=4) / batch_size
+    else
+        ! cnn not present; must only pass dense_input
+        if (.not. present(dense_input) .or. present(conv_input)) then
+            print *, '----------------------------------------------------'
+            print *, '(sequential_neural_net :: snn_test_one_hot_accuracy)'
+            print *, 'ConvLayers not present: only pass dense_input.'
+            print *, '----------------------------------------------------'
+            stop -1
+        end if
+
+        ! whole batch count; truncating remainder skips last partial batch
+        batches = size(dense_input, dim=1) / batch_size
+    end if
+
+    total_loss = 0 ! keep total for later average
+    input_i = 1    ! index of batch examples in input
+
+    do i = 1, batches
+        if (mod(i, 20) == 0) then
+            if (present(verbose) .and. verbose > 1) then
+                print *, 'batch:', i, '/', batches
+            end if
+        end if
+
+        ! extract input and labels batches
+        ! (slice the batch rows starting at train_i)
+        if (associated(this%cnn)) then
+            conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
+            labels = input_labels(input_i:input_i+batch_size-1, :)
+            call this%snn_forw_prop(conv_batch=conv_x)
+        else
+            dense_x = dense_input(input_i:input_i+batch_size-1, :)
+            labels = input_labels(input_i:input_i+batch_size-1, :)
+            call this%snn_forw_prop(dense_batch=dense_x)
+        end if
+
+        ! dnn%output%a has prediction vector upon completion
+        total_loss = total_loss + lossfunc(this%dnn%output%a, labels, loss)
+
+        input_i = input_i + batch_size
+    end do
+
+    snn_regression_loss = total_loss / batches ! avg loss
+end function
+
+!-------------------------------------------------------------------------------
+! handles predicting with trained SeqNN on all given data (inputs, labels)
+!
+! must only pass conv_input if ConvLayers in SeqNN, otherwise
+! must only pass dense_input if no ConvLayers present
+!-------------------------------------------------------------------------------
+! this:         (SeqNN - implicitly passed)
+! res:          (:,:) stores predictions; prediction rows correspond to input
+!
+! conv_input:   (optional - real(:,:,:,:)) input for ConvLayers
+! dense_input:  (optional - real(:,:)) input for DenseLayers
+!-------------------------------------------------------------------------------
+! alters ::     res becomes predictions of this SeqNN on input data
+!-------------------------------------------------------------------------------
+subroutine snn_predict(this, res, conv_input, dense_input)
+    class(SeqNN)               :: this
+    real, allocatable          :: res(:,:), conv_x(:,:,:,:), dense_x(:,:)
+    real, intent(in), optional :: conv_input(:,:,:,:), dense_input(:,:)
+    integer                    :: batch_size, items, batches, input_i, i, remain
+
+    batch_size = this%batch_size
+
+    if (associated(this%cnn)) then
+        ! cnn present; must only pass conv_input
+        if (.not. present(conv_input) .or. present(dense_input)) then
+            print *, '-----------------------------------------'
+            print *, '(sequential_neural_net :: snn_fit)'
+            print *, 'ConvLayers present: only pass conv_input.'
+            print *, '-----------------------------------------'
+            stop -1
+        end if
+
+        items = size(conv_input, dim=4)
+    else
+        ! cnn not present; must only pass dense_input
+        if (.not. present(dense_input) .or. present(conv_input)) then
+            print *, '----------------------------------------------'
+            print *, '(sequential_neural_net :: snn_fit)'
+            print *, 'ConvLayers not present: only pass dense_input.'
+            print *, '----------------------------------------------'
+            stop -1
+        end if
+
+        items = size(dense_input, dim=1)
+    end if
+
+    ! whole batch count; truncating remainder skips last partial batch
+    batches = items / batch_size
+    input_i = 1 ! index of batch examples in input
+
+    ! allocate a prediction row for each row in input
+    if (allocated(res)) then
+        if (.not. all(shape(res) == [items, this%dnn%output%out_nodes])) then
+            deallocate(res)
+        end if
+    end if
+
+    if (.not. allocated(res)) then
+        allocate(res(items, this%dnn%output%out_nodes))
+    end if
+
+    do i = 1, batches
+        ! extract whole input batch (slice the batch items starting at i) 
+        if (associated(this%cnn)) then
+            conv_x = conv_input(:,:,:,(i-1)*batch_size+1:i*batch_size)
+            call this%snn_forw_prop(conv_batch=conv_x)
+        else
+            dense_x = dense_input((i-1)*batch_size+1:i*batch_size,:)
+            call this%snn_forw_prop(dense_batch=dense_x)
+        end if
+
+        ! record predictions
+        res(input_i:input_i+batch_size-1, :) = this%dnn%output%a
+        input_i = input_i + batch_size
+    end do
+
+    ! predict for remaining inputs that were truncated above
+    remain = items - batches * batch_size
+
+    if (remain > 0) then
+        if (associated(this%cnn)) then
+
+            ! handle if batch wasn't already made
+            if (.not. allocated(conv_x)) then
+                allocate(conv_x(this%cnn%in_dims(1), &
+                                this%cnn%in_dims(2), &
+                                this%cnn%in_dims(3), &
+                                batch_size))
+            end if
+
+            conv_x = 0
+
+            ! batch currently allocated to proper batch shape;
+            ! overwrite the items we need, ignore remainder
+            conv_x(:,:,:,:remain) = conv_input(:,:,:,items-remain+1:)
+            call this%snn_forw_prop(conv_batch=conv_x)
+        else
+            ! handle if batch wasn't already made
+            if (.not. allocated(dense_x)) then
+                allocate(dense_x(batch_size, this%dnn%in_nodes))
+            end if
+
+            dense_x = 0
+
+            ! batch currently allocated to proper batch shape;
+            ! overwrite the items we need, ignore remainder
+            dense_x(:remain, :) = dense_input(items-remain+1:,:)
+            call this%snn_forw_prop(dense_batch=dense_x)
+        end if
+
+        ! fill last section of predictions with remaining items
+        res(input_i:, :) = this%dnn%output%a(:remain, :)
+    end if
+end subroutine
+
+!-------------------------------------------------------------------------------
+! prints the dimensions output by each layer in this SeqNN
+!-------------------------------------------------------------------------------
+! this:     (SeqNN - implicitly passed)
+!-------------------------------------------------------------------------------
+! alters :: prints details to stdout
+!-------------------------------------------------------------------------------
+subroutine snn_summary(this)
+    class(SeqNN)               :: this
+    class(ConvLayer), pointer  :: curr_conv
+    class(DenseLayer), pointer :: curr_dense
+
+    print *, '----------------------'
+
+    ! loop through ConvNN's ConvLayers (and PoolLayers)
+    if (associated(this%cnn)) then
+        print *, 'dimensions:               rows        cols    channels'
+        print *, '-----------'
+
+        print *, 'ConvLayer input:  ', this%cnn%in_dims
+
+        curr_conv => this%cnn%first_hid
+
+        do while (associated(curr_conv))
+            print *, 'ConvLayer output: ', &
+                curr_conv%out_rows, curr_conv%out_cols, curr_conv%out_channels
+
+            if (associated(curr_conv%next_pool)) then
+                print *, 'PoolLayer output: ', &
+                    curr_conv%next_pool%out_rows, &
+                    curr_conv%next_pool%out_cols, &
+                    curr_conv%next_pool%out_channels
+            end if
+
+            curr_conv => curr_conv%next_layer
+        end do
+        print *, '-----------'
+    end if
+
+    print *, 'dimensions:              nodes'
+    print *, '-----------'
+
+    ! loop through DenseNN's DenseLayers
+    print *, 'DenseLayer input: ', this%dnn%in_nodes
+
+    curr_dense => this%dnn%first_hid
+
+    do while (associated(curr_dense))
+        print *, 'DenseLayer output:', curr_dense%out_nodes
+
+        curr_dense => curr_dense%next_layer
+    end do
+
+    print *, '----------------------'
+end subroutine
+end module
