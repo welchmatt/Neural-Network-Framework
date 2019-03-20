@@ -1016,12 +1016,12 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! calculates the max pooling between a 2D array and a 2D kernel
 !-------------------------------------------------------------------------------
-! a:        (real(:,:)) base array
-! padding:  (characters) pool padding type
+! a:           (real(:,:)) base array
+! padding:     (characters) pool padding type
 ! kernel_dims: (integer(2)) (height, width) of kernel
-! stride:   (real(2)) size of kernel moves in (y, x) directions
-! res:      (real(:,:)) stores pooled output
-! res_idxs: (real(:,:,:)) stores chosen max indices
+! stride:      (real(2)) size of kernel moves in (y, x) directions
+! res:         (real(:,:)) stores pooled output
+! res_idxs:    (real(:,:,:)) stores chosen max indices
 !-------------------------------------------------------------------------------
 ! alters :: - res becomes max pooling result
 !           - res_idxs matches res (rows, cols), where third dimension of size 2
@@ -1106,18 +1106,18 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! calculates the max pooling between channels of arrays and a kernel
 !-------------------------------------------------------------------------------
-! a:        (real(:,:,:)) channels of base arrays
-! padding:  (characters) pool padding type
+! a:           (real(:,:,:)) channels of base arrays
+! padding:     (characters) pool padding type
 ! kernel_dims: (integer(2)) (height, width) of kernel
-! stride:   (real(2)) size of kernel moves in (y, x) directions
-! res:      (real(:,:,:)) stores pooled output; overwritten
-! res_idxs: (real(:,:,:,:)) stores chosen max indices; overwritten
+! stride:      (real(2)) size of kernel moves in (y, x) directions
+! res:         (real(:,:,:)) stores pooled output; overwritten
+! res_idxs:    (real(:,:,:,:)) stores chosen max indices; overwritten
 !-------------------------------------------------------------------------------
-! alters :: - res becomes 3D max pooling result
-!           - res_idxs becomes 4D array of max indices; 4th dimension is the
-!             channel, first three dimensions match those returned by res_idxs
-!             from max_pool_2D (see description above);
-!             -1 where max value in padding, not original array
+! alters ::    *res becomes 3D max pooling result
+!              *res_idxs becomes 4D array of max indices; 4th dimension is the
+!               channel, first three dimensions match those returned by res_idxs
+!               from max_pool_2D (see description above);
+!               -1 where max value in padding, not original array
 !-------------------------------------------------------------------------------
 subroutine max_pool_3D(a, padding, kernel_dims, stride, res, res_idxs)
     real, intent(in)         :: a(:,:,:)
