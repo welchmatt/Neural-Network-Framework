@@ -1,6 +1,6 @@
 !-------------------------------------------------------------------------------
 ! uses sequential neural network on MNIST dataset, which contains many
-! flattened 28x28 grayscale pictures of handwritten digits
+! flattened 28x28x1 grayscale pictures of handwritten digits
 !
 ! CSV version of datset downloaded from:
 ! https://www.kaggle.com/oddrationale/mnist-in-csv
