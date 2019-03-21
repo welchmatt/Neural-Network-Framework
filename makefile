@@ -1,5 +1,8 @@
 #-------------------------------------------------------------------------------
-# makefile for xor and mnist neural network tests
+# makefile for xor and mnist neural network tests;
+#
+# to implement the nueral network framework with your own code, see the template
+# sections marked and commented out below
 #-------------------------------------------------------------------------------
 # Matt Welch
 #-------------------------------------------------------------------------------
@@ -46,6 +49,21 @@ MNIST_SRC = $(addprefix src/, $(MNIST_DEPS))
 MNIST_OBJ = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.o, $(MNIST_SRC))
 MNIST_MOD = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.mod, $(MNIST_SRC))
 
+#-------------------------------------------------------------------------------
+# TEMPLATE: for implementing the framework in your own code;
+# simply substitute the assigned "YOUR_" variables to the names your want,
+# with your primary source that uses the framework in place of YOUR_FILE.f08.
+# you should include your source file in the src folder, along with all the
+# other source files for the framework:
+
+# YOUR_DEPS = $(BASE_DEPS) YOUR_FILE.f08
+# YOUR_SRC = $(addprefix src/, $(YOUR_DEPS))
+# YOUR_OBJ = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.o, $(YOUR_SRC))
+# YOUR_MOD = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.mod, $(YOUR_SRC))
+
+# see below for final step in the implementation
+#-------------------------------------------------------------------------------
+
 default:
 	@echo "----------------------"
 	@echo "for xor test:   compile with 'make xor',   run with './xor'."
@@ -60,6 +78,15 @@ xor: $(XOR_OBJ)
 
 mnist: $(MNIST_OBJ)
 	$(FC) $(FFLAGS) -o $@ $^
+
+#-------------------------------------------------------------------------------
+# TEMPLATE: define how you want to compile your executable. with this structure:
+# compile: make YOUR_EXECUTABLE
+# run:	   ./YOUR_EXECUTABLE
+
+# YOUR_EXECUTABLE: $(YOUR_OBJ)
+# 	$(FC) $(FFLAGS) -o $@ $^
+#-------------------------------------------------------------------------------
 
 # create object files; -J specifies directory for mod files
 $(ODIR)/%.o: $(SDIR)/%.f08
