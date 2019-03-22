@@ -226,24 +226,42 @@ end function
 !-------------------------------------------------------------------------------
 ! a:         (real(:,:))
 ! out_activ: (characters) output activation function
+! res:       (real(:,:)) stores the output
 !-------------------------------------------------------------------------------
-! alters ::  output activation occurs in-place on input a
+! alters ::  res becomes activation applied to z
 !-------------------------------------------------------------------------------
-subroutine out_activfunc(a, out_activ)
-    real                     :: a(:,:)
+subroutine out_activfunc(z, out_activ, res)
+    real                     :: z(:,:)
     character(*), intent(in) :: out_activ
+    real, allocatable        :: res(:,:)
+    integer                  :: z_rows, z_cols
+
+    z_rows = size(z, dim=1)
+    z_cols = size(z, dim=2)
+
+    ! create new array if not correct size
+    if (allocated(res)) then
+        if (.not. all(shape(res) == shape(z))) then
+            deallocate(res)
+        end if
+    end if
+
+    if (.not. allocated(res)) then
+        allocate(res(z_rows, z_cols))
+    end if
 
     select case(out_activ)
         case ('softmax')
-            call softmax(a)
+            res = z
+            call softmax(res)
         case ('sigmoid')
-            a = sigmoid_deriv(a)
+            res = sigmoid_deriv(z)
         case ('relu')
-            a = relu_deriv(a)
+            res = relu_deriv(z)
         case ('leaky_relu')
-            a = leaky_relu_deriv(a)
+            res = leaky_relu_deriv(z)
         case ('elu')
-            a = elu_deriv(a)
+            res = elu_deriv(z)
         case default
             print *, '--------------------------------------------------'
             print *, '(net_helper_functions :: out_activfunc)'

@@ -164,9 +164,8 @@ subroutine dnn_forw_prop(this, input)
     call this%first_hid%dense_forw_prop(input)
 
     ! different activation function on output layer
-    this%output%a = this%output%z ! prep for subroutine call
     ! a(l) = out_activ(z(l))
-    call out_activfunc(this%output%a, this%output%activ)
+    call out_activfunc(this%output%z, this%output%activ, this%output%a)
 end subroutine
 
 !-------------------------------------------------------------------------------
