@@ -77,6 +77,7 @@ Without much fine-tuning of the model's structure, the above version consistentl
 
 ## Prerequisites
 * GFortran 8.3.0 (for Fortran 2008 support)
+* GNU Make
 
 ## Tests
 Two tests are stored in the src folder, alongside the framework files:
