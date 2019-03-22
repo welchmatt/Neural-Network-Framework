@@ -23,38 +23,38 @@ contains
 !-------------------------------------------------------------------------------
 ! sigmoid activation function
 !-------------------------------------------------------------------------------
-! x:         (real)
+! z:         (real)
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function sigmoid(x)
-    real, intent(in) :: x
-    sigmoid = exp(x) / (exp(x) + 1)
+elemental real function sigmoid(z)
+    real, intent(in) :: z
+    sigmoid = exp(z) / (exp(z) + 1)
 end function
 
 !-------------------------------------------------------------------------------
 ! derivative of sigmoid activation function
 !-------------------------------------------------------------------------------
-! x:         (real)
+! z:         (real)
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function sigmoid_deriv(x)
-    real, intent(in) :: x
-    sigmoid_deriv = exp(x) / (exp(x) + 1)**2
+elemental real function sigmoid_deriv(z)
+    real, intent(in) :: z
+    sigmoid_deriv = exp(z) / (exp(z) + 1)**2
 end function
 
 !-------------------------------------------------------------------------------
 ! relu activation function
 !-------------------------------------------------------------------------------
-! x:         (real)
+! z:         (real)
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function relu(x)
-    real, intent(in) :: x
-    if (x >= 0) then
-        relu = x
+elemental real function relu(z)
+    real, intent(in) :: z
+    if (z >= 0) then
+        relu = z
     else
         relu = 0
     end if
@@ -63,13 +63,13 @@ end function
 !-------------------------------------------------------------------------------
 ! derivative of relu activation function
 !-------------------------------------------------------------------------------
-! x:         (real)
+! z:         (real)
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function relu_deriv(x)
-    real, intent(in) :: x
-    if (x > 0) then
+elemental real function relu_deriv(z)
+    real, intent(in) :: z
+    if (z > 0) then
         relu_deriv = 1
     else
         relu_deriv = 0
@@ -79,29 +79,29 @@ end function
 !-------------------------------------------------------------------------------
 ! leaky relu activation function
 !-------------------------------------------------------------------------------
-! x:         (real)
+! z:         (real)
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function leaky_relu(x)
-    real, intent(in) :: x
-    if (x > 0) then
-        leaky_relu = x
+elemental real function leaky_relu(z)
+    real, intent(in) :: z
+    if (z > 0) then
+        leaky_relu = z
     else
-        leaky_relu = 0.01 * x
+        leaky_relu = 0.01 * z
     end if
 end function
 
 !-------------------------------------------------------------------------------
 ! derivative of leaky relu activation function
 !-------------------------------------------------------------------------------
-! x:         (real)
+! z:         (real)
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function leaky_relu_deriv(x)
-    real, intent(in) :: x
-    if (x > 0) then
+elemental real function leaky_relu_deriv(z)
+    real, intent(in) :: z
+    if (z > 0) then
         leaky_relu_deriv = 1
     else
         leaky_relu_deriv = 0.01
@@ -111,73 +111,73 @@ end function
 !-------------------------------------------------------------------------------
 ! elu activation function
 !-------------------------------------------------------------------------------
-! x:         (real)
+! z:         (real)
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function elu(x)
-    real, intent(in) :: x
-    if (x > 0) then
-        elu = x
+elemental real function elu(z)
+    real, intent(in) :: z
+    if (z > 0) then
+        elu = z
     else
-        elu = 0.01 * (exp(x) - 1)
+        elu = 0.01 * (ezp(z) - 1)
     end if
 end function
 
 !-------------------------------------------------------------------------------
 ! derivative of elu activation function
 !-------------------------------------------------------------------------------
-! x:         (real)
+! z:         (real)
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function elu_deriv(x)
-    real, intent(in) :: x
-    if (x > 0) then
+elemental real function elu_deriv(z)
+    real, intent(in) :: z
+    if (z > 0) then
         elu_deriv = 1
     else
-        elu_deriv = 0.01 * exp(x)
+        elu_deriv = 0.01 * exp(z)
     end if
 end function
 
 !-------------------------------------------------------------------------------
 ! softmax activation function (applied to rows)
 !-------------------------------------------------------------------------------
-! a:        (real(:,:))
+! z:        (real(:,:))
 !-------------------------------------------------------------------------------
 ! alters :: softmax occurs in-place on input a
 !-------------------------------------------------------------------------------
-subroutine softmax(a)
-    real    :: a(:,:)
+subroutine softmax(z)
+    real    :: z(:,:)
     integer :: r
-    a = exp(a)
-    do r = 1, size(a, dim=1)
+    z = exp(z)
+    do r = 1, size(z, dim=1)
         ! vals in each row / sum of that row
-        a(r,:) = a(r,:) / sum(a(r,:))
+        z(r,:) = z(r,:) / sum(z(r,:))
     end do
 end subroutine
 
 !-------------------------------------------------------------------------------
 ! wrapper for element-wise activation functions
 !-------------------------------------------------------------------------------
-! x:         (real)
+! z:         (real)
 ! activ:     (characters) activation function
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-impure elemental real function activfunc(x, activ)
-    real, intent(in)         :: x
+impure elemental real function activfunc(z, activ)
+    real, intent(in)         :: z
     character(*), intent(in) :: activ
 
     select case(activ)
         case ('sigmoid')
-            activfunc = sigmoid(x)
+            activfunc = sigmoid(z)
         case ('relu')
-            activfunc = relu(x)
+            activfunc = relu(z)
         case ('leaky_relu')
-            activfunc = leaky_relu(x)
+            activfunc = leaky_relu(z)
         case ('elu')
-            activfunc = elu(x)
+            activfunc = elu(z)
         case default
             print *, '-----------------------------------------'
             print *, '(net_helper_functions :: activfunc)'
@@ -191,24 +191,24 @@ end function
 !-------------------------------------------------------------------------------
 ! wrapper for element-wise activation function derivative
 !-------------------------------------------------------------------------------
-! x:         (real)
+! z:         (real)
 ! activ:     (characters) activation function
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-impure elemental real function activfunc_deriv(x, activ)
-    real, intent(in)         :: x
+impure elemental real function activfunc_deriv(z, activ)
+    real, intent(in)         :: z
     character(*), intent(in) :: activ
 
     select case(activ)
         case ('sigmoid')
-            activfunc_deriv = sigmoid_deriv(x)
+            activfunc_deriv = sigmoid_deriv(z)
         case ('relu')
-            activfunc_deriv = relu_deriv(x)
+            activfunc_deriv = relu_deriv(z)
         case ('leaky_relu')
-            activfunc_deriv = leaky_relu_deriv(x)
+            activfunc_deriv = leaky_relu_deriv(z)
         case ('elu')
-            activfunc_deriv = elu_deriv(x)
+            activfunc_deriv = elu_deriv(z)
         case default
             print *, '-----------------------------------------'
             print *, '(net_helper_functions :: activfunc_deriv)'
