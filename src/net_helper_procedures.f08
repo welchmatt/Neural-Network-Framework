@@ -120,7 +120,7 @@ elemental real function elu(z)
     if (z > 0) then
         elu = z
     else
-        elu = 0.01 * (ezp(z) - 1)
+        elu = 0.01 * (exp(z) - 1)
     end if
 end function
 
@@ -400,13 +400,13 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! alters ::  images and arr rows shuffled (correspondingly) in-place
 !-------------------------------------------------------------------------------
-subroutine pair_shuffle_channels_4D(image, arr)
-    real              :: image(:,:,:,:), arr(:,:), randn
+subroutine pair_shuffle_channels_4D(images, arr)
+    real              :: images(:,:,:,:), arr(:,:), randn
     real, allocatable :: channel(:,:,:), row(:)
     integer           :: i, j
 
     ! loop through channels from high to low indices
-    do i = size(image, dim=4), 2, -1
+    do i = size(images, dim=4), 2, -1
         j = i + 1 ! arbitrary assignment to enter loop below
 
         ! generate random j in range [1,i]
@@ -419,9 +419,9 @@ subroutine pair_shuffle_channels_4D(image, arr)
         ! swap if random index in different place
         ! (if random j = i, don't need to swap i with i)
         if (i /= j) then
-            channel = image(:,:,:,i)
-            image(:,:,:,i) = image(:,:,:,j)
-            image(:,:,:,j) = channel
+            channel = images(:,:,:,i)
+            images(:,:,:,i) = images(:,:,:,j)
+            images(:,:,:,j) = channel
 
             row = arr(i,:)
             arr(i,:) = arr(j,:)
