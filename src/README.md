@@ -11,6 +11,7 @@ sequential_neural_net.f08
 
 Test source code files:
 ```
+test_autoenc.f08
 test_mnist.f08
 test_xor.f08
 ```
