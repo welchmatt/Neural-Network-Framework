@@ -11,7 +11,8 @@ contains
 
 !===============================================================================
 !===============================================================================
-! procedures with 2D array input require variables-as-columns form
+! procedures with 2D array input require variables-as-columns form;
+! procedures with 4D array input require (rows, columns, channels, batches) form
 !===============================================================================
 !===============================================================================
 
@@ -230,7 +231,7 @@ end function
 !-------------------------------------------------------------------------------
 ! alters ::  res becomes activation applied to z
 !-------------------------------------------------------------------------------
-subroutine out_activfunc(z, out_activ, res)
+subroutine out_activfunc_2D(z, out_activ, res)
     real                     :: z(:,:)
     character(*), intent(in) :: out_activ
     real, allocatable        :: res(:,:)
@@ -284,9 +285,22 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function mse_func(preds, labels)
+real function mse_func_2D(preds, labels)
     real, intent(in) :: preds(:,:), labels(:,:)
-    mse_func = sum((preds - labels) ** 2) / (2 * size(preds, dim=1))
+    mse_func_2D = sum((preds - labels) ** 2) / (2 * size(preds, dim=1))
+end function
+
+!-------------------------------------------------------------------------------
+! mean square error between predictions and true labels
+!-------------------------------------------------------------------------------
+! preds:      (real(:,:,:,:)) predictions
+! labels:     (real(:,:,:,:)) targets we want to predict
+!-------------------------------------------------------------------------------
+! returns ::  (real)
+!-------------------------------------------------------------------------------
+real function mse_func_4D(preds, targets)
+    real, intent(in) :: preds(:,:,:,:), targets(:,:,:,:)
+    mse_func_4D = sum((preds - targets) ** 2) / (2 * size(preds, dim=1))
 end function
 
 !-------------------------------------------------------------------------------
@@ -297,9 +311,9 @@ end function
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function cross_entropy_func(preds, labels)
+real function cross_entropy_func_2D(preds, labels)
     real, intent(in) :: preds(:,:), labels(:,:)
-    cross_entropy_func = -sum(labels * log(preds)) / size(preds, dim=1)
+    cross_entropy_func_2D = -sum(labels * log(preds)) / size(preds, dim=1)
 end function
 
 !-------------------------------------------------------------------------------
@@ -310,13 +324,13 @@ end function
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function one_hot_accuracy(preds, labels)
+real function one_hot_accuracy_2D(preds, labels)
     real, intent(in) :: preds(:,:), labels(:,:)
     real             :: correct
 
     ! correct where strongest predictions match one-hot labels
     correct = count(maxloc(preds, dim=2) == maxloc(labels, dim=2))
-    one_hot_accuracy = correct / size(preds, dim=1)
+    one_hot_accuracy_2D = correct / size(preds, dim=1)
 end function
 
 !-------------------------------------------------------------------------------
@@ -328,20 +342,46 @@ end function
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function lossfunc(preds, labels, loss)
+real function lossfunc_2D(preds, labels, loss)
     real, intent(in)         :: preds(:,:), labels(:,:)
     character(*), intent(in) :: loss
 
     select case(loss)
         case ('mse')
-            lossfunc = mse_func(preds, labels)
+            lossfunc_2D = mse_func_2D(preds, labels)
         case ('cross_entropy')
-            lossfunc = cross_entropy_func(preds, labels)
+            lossfunc_2D = cross_entropy_func_2D(preds, labels)
         case default
             print *, '----------------------------------'
             print *, '(net_helper_functions :: lossfunc)'
             print *, 'invalid loss function.'
             print *, 'supported: mse, cross_entropy'
+            print *, '----------------------------------'
+            stop -1
+    end select
+end function
+
+!-------------------------------------------------------------------------------
+! wrapper for loss functions
+!-------------------------------------------------------------------------------
+! preds:      (real(:,:,:,:)) predictions
+! targets:    (real(:,:,:,:)) targets we want to predict
+! loss:       (characters) loss function
+!-------------------------------------------------------------------------------
+! returns ::  (real)
+!-------------------------------------------------------------------------------
+real function lossfunc_4D(preds, targets, loss)
+    real, intent(in)         :: preds(:,:,:,:), targets(:,:,:,:)
+    character(*), intent(in) :: loss
+
+    select case(loss)
+        case ('mse')
+            lossfunc_4D = mse_func_4D(preds, targets)
+        case default
+            print *, '----------------------------------'
+            print *, '(net_helper_functions :: lossfunc)'
+            print *, 'invalid loss function.'
+            print *, 'supported: mse'
             print *, '----------------------------------'
             stop -1
     end select
@@ -392,7 +432,7 @@ subroutine pair_shuffle_rows_2D(a, b)
 end subroutine
 
 !-------------------------------------------------------------------------------
-! shuffle first 3D ranks of a 4D array and rows of a 2D array in corresponding
+! shuffle each batch element in images and each row in arr in corresponding
 ! order (Fisher-Yates shuffle)
 !-------------------------------------------------------------------------------
 ! a:         (real(:,:,:,:))

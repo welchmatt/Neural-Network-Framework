@@ -1,4 +1,12 @@
 !-------------------------------------------------------------------------------
+! TODO:
+!   * allow for fully-convolutional networks
+!       * need to define deconvolutional and unpooling layers, and plug those
+!         into existing ConvNN framework
+!       * then, make adjustments here to handle ConvNN-only and DenseNN-only
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
 ! neural network implementation that utilizes ConvLayers, PoolLayers, and &
 ! DenseLayers in "sequence" (hence the name sequential - based on Keras library)
 !
@@ -57,7 +65,8 @@ contains
                                snn_add_dense_layer, snn_init, snn_forw_prop, &
                                snn_cnn_out_delta, snn_back_prop, snn_update, &
                                snn_fit, snn_one_hot_accuracy, &
-                               snn_regression_loss, snn_predict, snn_summary
+                               snn_regression_loss, snn_predict, &
+                               snn_summary
 end type
 contains
 
@@ -529,100 +538,100 @@ end subroutine
 ! alters ::    - this SeqNN fit to minimize loss on training data
 !              - train_labels, [conv_input, dense_input] shuffled in place
 !-------------------------------------------------------------------------------
-! subroutine snn_fit(this, train_labels, batch_size, epochs, learn_rate, loss, &
-!                    conv_input, dense_input, verbose)
-!     class(SeqNN)             :: this
-!     real                     :: train_labels(:,:)
-!     integer, intent(in)      :: batch_size, epochs
-!     real, intent(in)         :: learn_rate
-!     character(*), intent(in) :: loss
-!     real, optional           :: conv_input(:,:,:,:), dense_input(:,:)
-!     integer, optional        :: verbose
-!     real, allocatable        :: conv_x(:,:,:,:), dense_x(:,:), labels(:,:)
-!     integer                  :: batches, input_i, i, j
+subroutine snn_fit(this, train_labels, batch_size, epochs, learn_rate, loss, &
+                   conv_input, dense_input, verbose)
+    class(SeqNN)             :: this
+    real                     :: train_labels(:,:)
+    integer, intent(in)      :: batch_size, epochs
+    real, intent(in)         :: learn_rate
+    character(*), intent(in) :: loss
+    real, optional           :: conv_input(:,:,:,:), dense_input(:,:)
+    integer, optional        :: verbose
+    real, allocatable        :: conv_x(:,:,:,:), dense_x(:,:), labels(:,:)
+    integer                  :: batches, input_i, i, j
 
-!     if (.not. this%is_init) then
-!         call this%snn_init(batch_size)
-!     end if
+    if (.not. this%is_init) then
+        call this%snn_init(batch_size)
+    end if
 
-!     if (associated(this%cnn)) then
-!         ! cnn present; must only pass conv_input
-!         if (.not. present(conv_input) .or. present(dense_input)) then
-!             print *, '-----------------------------------------'
-!             print *, '(sequential_neural_net :: snn_fit)'
-!             print *, 'ConvLayers present: only pass conv_input.'
-!             print *, '-----------------------------------------'
-!             stop -1
-!         end if
+    if (associated(this%cnn)) then
+        ! cnn present; must only pass conv_input
+        if (.not. present(conv_input) .or. present(dense_input)) then
+            print *, '-----------------------------------------'
+            print *, '(sequential_neural_net :: snn_fit)'
+            print *, 'ConvLayers present: only pass conv_input.'
+            print *, '-----------------------------------------'
+            stop -1
+        end if
 
-!         ! whole batch count; truncating remainder skips last partial batch
-!         batches = size(conv_input, dim=4) / batch_size
-!     else
-!         ! cnn not present; must only pass dense_input
-!         if (.not. present(dense_input) .or. present(conv_input)) then
-!             print *, '----------------------------------------------'
-!             print *, '(sequential_neural_net :: snn_fit)'
-!             print *, 'ConvLayers not present: only pass dense_input.'
-!             print *, '----------------------------------------------'
-!             stop -1
-!         end if
+        ! whole batch count; truncating remainder skips last partial batch
+        batches = size(conv_input, dim=4) / batch_size
+    else
+        ! cnn not present; must only pass dense_input
+        if (.not. present(dense_input) .or. present(conv_input)) then
+            print *, '----------------------------------------------'
+            print *, '(sequential_neural_net :: snn_fit)'
+            print *, 'ConvLayers not present: only pass dense_input.'
+            print *, '----------------------------------------------'
+            stop -1
+        end if
 
-!         ! whole batch count; truncating remainder skips last partial batch
-!         batches = size(dense_input, dim=1) / batch_size
-!     end if
+        ! whole batch count; truncating remainder skips last partial batch
+        batches = size(dense_input, dim=1) / batch_size
+    end if
 
-!     do i = 1, epochs
-!         if (present(verbose) .and. verbose > 0) then
-!             print *, 'epoch:', i
-!         end if
+    do i = 1, epochs
+        if (present(verbose) .and. verbose > 0) then
+            print *, 'epoch:', i
+        end if
         
-!         input_i = 1 ! index of batch examples in input
+        input_i = 1 ! index of batch examples in input
 
-!         ! shuffle input and labels to same new ordering (improves training)
-!         if (associated(this%cnn)) then
-!             call pair_shuffle_channels_4D(conv_input, train_labels)
-!         else
-!             call pair_shuffle_rows_2D(dense_input, train_labels)
-!         end if
+        ! shuffle input and labels to same new ordering (improves training)
+        if (associated(this%cnn)) then
+            call pair_shuffle_channels_4D(conv_input, train_labels)
+        else
+            call pair_shuffle_rows_2D(dense_input, train_labels)
+        end if
         
-!         do j = 1, batches
-!             if (mod(j, 20) == 0) then
-!                 if (present(verbose) .and. verbose > 1) then
-!                     print *, 'batch:', j, '/', batches
-!                 end if
-!             end if
+        do j = 1, batches
+            if (mod(j, 20) == 0) then
+                if (present(verbose) .and. verbose > 1) then
+                    print *, 'batch:', j, '/', batches
+                end if
+            end if
 
-!             ! extract corresponding batches of input and labels
-!             ! (slice the batch rows starting at input_i)
-!             if (associated(this%cnn)) then
-!                 conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
-!                 labels = train_labels(input_i:input_i+batch_size-1, :)
+            ! extract corresponding batches of input and labels
+            ! (slice the batch rows starting at input_i)
+            if (associated(this%cnn)) then
+                conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
+                labels = train_labels(input_i:input_i+batch_size-1, :)
 
-!                 call this%snn_forw_prop(conv_batch=conv_x)
-!                 call this%snn_back_prop(labels, loss)
-!                 call this%snn_update(learn_rate, conv_batch=conv_x)
-!             else
-!                 dense_x = dense_input(input_i:input_i+batch_size-1, :)
-!                 labels = train_labels(input_i:input_i+batch_size-1, :)
+                call this%snn_forw_prop(conv_batch=conv_x)
+                call this%snn_back_prop(labels, loss)
+                call this%snn_update(learn_rate, conv_batch=conv_x)
+            else
+                dense_x = dense_input(input_i:input_i+batch_size-1, :)
+                labels = train_labels(input_i:input_i+batch_size-1, :)
 
-!                 call this%snn_forw_prop(dense_batch=dense_x)
-!                 call this%snn_back_prop(labels, loss)
-!                 call this%snn_update(learn_rate, dense_batch=dense_x)
-!             end if
+                call this%snn_forw_prop(dense_batch=dense_x)
+                call this%snn_back_prop(labels, loss)
+                call this%snn_update(learn_rate, dense_batch=dense_x)
+            end if
 
-!             input_i = input_i + batch_size
-!         end do
+            input_i = input_i + batch_size
+        end do
 
-!         if (present(verbose) .and. verbose > 0) then
-!             if (mod(i, 5) == 0) then
-!                 print *, '----------------------'
-!                 print *, 'last train batch loss:'
-!                 print *, lossfunc(this%dnn%output%a, labels, loss)
-!                 print *, '----------------------'
-!             end if
-!         end if
-!     end do
-! end subroutine
+        if (present(verbose) .and. verbose > 0) then
+            if (mod(i, 5) == 0) then
+                print *, '----------------------'
+                print *, 'last train batch loss:'
+                print *, lossfunc_2D(this%dnn%output%a, labels, loss)
+                print *, '----------------------'
+            end if
+        end if
+    end do
+end subroutine
 
 !-------------------------------------------------------------------------------
 ! handles checking SeqNN accuracy on all given data (input, labels);
@@ -641,75 +650,75 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! returns:     (real) this SeqNN's one-hot accuracy on the given data
 !-------------------------------------------------------------------------------
-! real function snn_one_hot_accuracy(this, input_labels, &
-!                                    conv_input, dense_input, verbose)
-!     class(SeqNN)               :: this
-!     real, intent(in)           :: input_labels(:,:)
-!     real, intent(in), optional :: conv_input(:,:,:,:), dense_input(:,:)
-!     integer, optional          :: verbose
-!     real, allocatable          :: conv_x(:,:,:,:), dense_x(:,:), labels(:,:)
-!     integer                    :: batch_size, batches, input_i, i
-!     real                       :: total_correct_prob
+real function snn_one_hot_accuracy(this, input_labels, &
+                                   conv_input, dense_input, verbose)
+    class(SeqNN)               :: this
+    real, intent(in)           :: input_labels(:,:)
+    real, intent(in), optional :: conv_input(:,:,:,:), dense_input(:,:)
+    integer, optional          :: verbose
+    real, allocatable          :: conv_x(:,:,:,:), dense_x(:,:), labels(:,:)
+    integer                    :: batch_size, batches, input_i, i
+    real                       :: total_correct_prob
 
-!     batch_size = this%batch_size
+    batch_size = this%batch_size
 
-!     if (associated(this%cnn)) then
-!         ! cnn present; must only pass conv_input
-!         if (.not. present(conv_input) .or. present(dense_input)) then
-!             print *, '----------------------------------------------------'
-!             print *, '(sequential_neural_net :: snn_test_one_hot_accuracy)'
-!             print *, 'ConvLayers present: only pass conv_input.'
-!             print *, '----------------------------------------------------'
-!             stop -1
-!         end if
+    if (associated(this%cnn)) then
+        ! cnn present; must only pass conv_input
+        if (.not. present(conv_input) .or. present(dense_input)) then
+            print *, '----------------------------------------------------'
+            print *, '(sequential_neural_net :: snn_test_one_hot_accuracy)'
+            print *, 'ConvLayers present: only pass conv_input.'
+            print *, '----------------------------------------------------'
+            stop -1
+        end if
 
-!         ! whole batch count; truncating remainder skips last partial batch
-!         batches = size(conv_input, dim=4) / batch_size
-!     else
-!         ! cnn not present; must only pass dense_input
-!         if (.not. present(dense_input) .or. present(conv_input)) then
-!             print *, '----------------------------------------------------'
-!             print *, '(sequential_neural_net :: snn_test_one_hot_accuracy)'
-!             print *, 'ConvLayers not present: only pass dense_input.'
-!             print *, '----------------------------------------------------'
-!             stop -1
-!         end if
+        ! whole batch count; truncating remainder skips last partial batch
+        batches = size(conv_input, dim=4) / batch_size
+    else
+        ! cnn not present; must only pass dense_input
+        if (.not. present(dense_input) .or. present(conv_input)) then
+            print *, '----------------------------------------------------'
+            print *, '(sequential_neural_net :: snn_test_one_hot_accuracy)'
+            print *, 'ConvLayers not present: only pass dense_input.'
+            print *, '----------------------------------------------------'
+            stop -1
+        end if
 
-!         ! whole batch count; truncating remainder skips last partial batch
-!         batches = size(dense_input, dim=1) / batch_size
-!     end if
+        ! whole batch count; truncating remainder skips last partial batch
+        batches = size(dense_input, dim=1) / batch_size
+    end if
 
-!     total_correct_prob = 0 ! keep total for later average
-!     input_i = 1            ! index of batch examples in input
+    total_correct_prob = 0 ! keep total for later average
+    input_i = 1            ! index of batch examples in input
 
-!     do i = 1, batches
-!         if (mod(i, 20) == 0) then
-!             if (present(verbose) .and. verbose > 1) then
-!                 print *, 'batch:', i, '/', batches
-!             end if
-!         end if
+    do i = 1, batches
+        if (mod(i, 20) == 0) then
+            if (present(verbose) .and. verbose > 1) then
+                print *, 'batch:', i, '/', batches
+            end if
+        end if
 
-!         ! extract corresponding batches of input and labels
-!         ! (slice the batch rows starting at input_i)
-!         if (associated(this%cnn)) then
-!             conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
-!             labels = input_labels(input_i : input_i+batch_size-1, :)
-!             call this%snn_forw_prop(conv_batch=conv_x)
-!         else
-!             dense_x = dense_input(input_i:input_i+batch_size-1, :)
-!             labels = input_labels(input_i : input_i+batch_size-1, :)
-!             call this%snn_forw_prop(dense_batch=dense_x)
-!         end if
+        ! extract corresponding batches of input and labels
+        ! (slice the batch rows starting at input_i)
+        if (associated(this%cnn)) then
+            conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
+            labels = input_labels(input_i : input_i+batch_size-1, :)
+            call this%snn_forw_prop(conv_batch=conv_x)
+        else
+            dense_x = dense_input(input_i:input_i+batch_size-1, :)
+            labels = input_labels(input_i : input_i+batch_size-1, :)
+            call this%snn_forw_prop(dense_batch=dense_x)
+        end if
 
-!         ! dnn%output%a has prediction vector upon completion
-!         total_correct_prob = total_correct_prob + &
-!                              one_hot_accuracy(this%dnn%output%a, labels)
+        ! dnn%output%a has prediction vector upon completion
+        total_correct_prob = total_correct_prob + &
+                             one_hot_accuracy_2D(this%dnn%output%a, labels)
 
-!         input_i = input_i + batch_size
-!     end do
+        input_i = input_i + batch_size
+    end do
 
-!     snn_one_hot_accuracy = total_correct_prob / batches ! avg probability
-! end function
+    snn_one_hot_accuracy = total_correct_prob / batches ! avg probability
+end function
 
 !-------------------------------------------------------------------------------
 ! handles checking SeqNN loss on all given data (input, labels);
@@ -728,75 +737,75 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! returns:     (real) this SeqNN's loss on the given data
 !-------------------------------------------------------------------------------
-! real function snn_regression_loss(this, input_labels, loss, conv_input, &
-!                                   dense_input, verbose)
-!     class(SeqNN)               :: this
-!     real, intent(in)           :: input_labels(:,:)
-!     character(*), intent(in)   :: loss
-!     real, intent(in), optional :: conv_input(:,:,:,:), dense_input(:,:)
-!     integer, optional          :: verbose
-!     real, allocatable          :: conv_x(:,:,:,:), dense_x(:,:), labels(:,:)
-!     integer                    :: batches, input_i, i, batch_size
-!     real                       :: total_loss
+real function snn_regression_loss(this, input_labels, loss, conv_input, &
+                                  dense_input, verbose)
+    class(SeqNN)               :: this
+    real, intent(in)           :: input_labels(:,:)
+    character(*), intent(in)   :: loss
+    real, intent(in), optional :: conv_input(:,:,:,:), dense_input(:,:)
+    integer, optional          :: verbose
+    real, allocatable          :: conv_x(:,:,:,:), dense_x(:,:), labels(:,:)
+    integer                    :: batches, input_i, i, batch_size
+    real                       :: total_loss
 
-!     batch_size = this%batch_size
+    batch_size = this%batch_size
 
-!     if (associated(this%cnn)) then
-!         ! cnn present; must only pass conv_input
-!         if (.not. present(conv_input) .or. present(dense_input)) then
-!             print *, '----------------------------------------------------'
-!             print *, '(sequential_neural_net :: snn_test_one_hot_accuracy)'
-!             print *, 'ConvLayers present: only pass conv_input.'
-!             print *, '----------------------------------------------------'
-!             stop -1
-!         end if
+    if (associated(this%cnn)) then
+        ! cnn present; must only pass conv_input
+        if (.not. present(conv_input) .or. present(dense_input)) then
+            print *, '----------------------------------------------------'
+            print *, '(sequential_neural_net :: snn_test_one_hot_accuracy)'
+            print *, 'ConvLayers present: only pass conv_input.'
+            print *, '----------------------------------------------------'
+            stop -1
+        end if
 
-!         ! whole batch count; truncating remainder skips last partial batch
-!         batches = size(conv_input, dim=4) / batch_size
-!     else
-!         ! cnn not present; must only pass dense_input
-!         if (.not. present(dense_input) .or. present(conv_input)) then
-!             print *, '----------------------------------------------------'
-!             print *, '(sequential_neural_net :: snn_test_one_hot_accuracy)'
-!             print *, 'ConvLayers not present: only pass dense_input.'
-!             print *, '----------------------------------------------------'
-!             stop -1
-!         end if
+        ! whole batch count; truncating remainder skips last partial batch
+        batches = size(conv_input, dim=4) / batch_size
+    else
+        ! cnn not present; must only pass dense_input
+        if (.not. present(dense_input) .or. present(conv_input)) then
+            print *, '----------------------------------------------------'
+            print *, '(sequential_neural_net :: snn_test_one_hot_accuracy)'
+            print *, 'ConvLayers not present: only pass dense_input.'
+            print *, '----------------------------------------------------'
+            stop -1
+        end if
 
-!         ! whole batch count; truncating remainder skips last partial batch
-!         batches = size(dense_input, dim=1) / batch_size
-!     end if
+        ! whole batch count; truncating remainder skips last partial batch
+        batches = size(dense_input, dim=1) / batch_size
+    end if
 
-!     total_loss = 0 ! keep total for later average
-!     input_i = 1    ! index of batch examples in input
+    total_loss = 0 ! keep total for later average
+    input_i = 1    ! index of batch examples in input
 
-!     do i = 1, batches
-!         if (mod(i, 20) == 0) then
-!             if (present(verbose) .and. verbose > 1) then
-!                 print *, 'batch:', i, '/', batches
-!             end if
-!         end if
+    do i = 1, batches
+        if (mod(i, 20) == 0) then
+            if (present(verbose) .and. verbose > 1) then
+                print *, 'batch:', i, '/', batches
+            end if
+        end if
 
-!         ! extract input and labels batches
-!         ! (slice the batch rows starting at train_i)
-!         if (associated(this%cnn)) then
-!             conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
-!             labels = input_labels(input_i:input_i+batch_size-1, :)
-!             call this%snn_forw_prop(conv_batch=conv_x)
-!         else
-!             dense_x = dense_input(input_i:input_i+batch_size-1, :)
-!             labels = input_labels(input_i:input_i+batch_size-1, :)
-!             call this%snn_forw_prop(dense_batch=dense_x)
-!         end if
+        ! extract input and labels batches
+        ! (slice the batch rows starting at train_i)
+        if (associated(this%cnn)) then
+            conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
+            labels = input_labels(input_i:input_i+batch_size-1, :)
+            call this%snn_forw_prop(conv_batch=conv_x)
+        else
+            dense_x = dense_input(input_i:input_i+batch_size-1, :)
+            labels = input_labels(input_i:input_i+batch_size-1, :)
+            call this%snn_forw_prop(dense_batch=dense_x)
+        end if
 
-!         ! dnn%output%a has prediction vector upon completion
-!         total_loss = total_loss + lossfunc(this%dnn%output%a, labels, loss)
+        ! dnn%output%a has prediction vector upon completion
+        total_loss = total_loss + lossfunc_2D(this%dnn%output%a, labels, loss)
 
-!         input_i = input_i + batch_size
-!     end do
+        input_i = input_i + batch_size
+    end do
 
-!     snn_regression_loss = total_loss / batches ! avg loss
-! end function
+    snn_regression_loss = total_loss / batches ! avg loss
+end function
 
 !-------------------------------------------------------------------------------
 ! handles predicting with trained SeqNN on all given data (inputs, labels)
@@ -812,106 +821,106 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! alters ::     res becomes predictions of this SeqNN on input data
 !-------------------------------------------------------------------------------
-! subroutine snn_predict(this, res, conv_input, dense_input)
-!     class(SeqNN)               :: this
-!     real, allocatable          :: res(:,:), conv_x(:,:,:,:), dense_x(:,:)
-!     real, intent(in), optional :: conv_input(:,:,:,:), dense_input(:,:)
-!     integer                    :: batch_size, items, batches, input_i, i, remain
+subroutine snn_predict(this, res, conv_input, dense_input)
+    class(SeqNN)               :: this
+    real, allocatable          :: res(:,:), conv_x(:,:,:,:), dense_x(:,:)
+    real, intent(in), optional :: conv_input(:,:,:,:), dense_input(:,:)
+    integer                    :: batch_size, items, batches, input_i, i, remain
 
-!     batch_size = this%batch_size
+    batch_size = this%batch_size
 
-!     if (associated(this%cnn)) then
-!         ! cnn present; must only pass conv_input
-!         if (.not. present(conv_input) .or. present(dense_input)) then
-!             print *, '-----------------------------------------'
-!             print *, '(sequential_neural_net :: snn_fit)'
-!             print *, 'ConvLayers present: only pass conv_input.'
-!             print *, '-----------------------------------------'
-!             stop -1
-!         end if
+    if (associated(this%cnn)) then
+        ! cnn present; must only pass conv_input
+        if (.not. present(conv_input) .or. present(dense_input)) then
+            print *, '-----------------------------------------'
+            print *, '(sequential_neural_net :: snn_fit)'
+            print *, 'ConvLayers present: only pass conv_input.'
+            print *, '-----------------------------------------'
+            stop -1
+        end if
 
-!         items = size(conv_input, dim=4)
-!     else
-!         ! cnn not present; must only pass dense_input
-!         if (.not. present(dense_input) .or. present(conv_input)) then
-!             print *, '----------------------------------------------'
-!             print *, '(sequential_neural_net :: snn_fit)'
-!             print *, 'ConvLayers not present: only pass dense_input.'
-!             print *, '----------------------------------------------'
-!             stop -1
-!         end if
+        items = size(conv_input, dim=4)
+    else
+        ! cnn not present; must only pass dense_input
+        if (.not. present(dense_input) .or. present(conv_input)) then
+            print *, '----------------------------------------------'
+            print *, '(sequential_neural_net :: snn_fit)'
+            print *, 'ConvLayers not present: only pass dense_input.'
+            print *, '----------------------------------------------'
+            stop -1
+        end if
 
-!         items = size(dense_input, dim=1)
-!     end if
+        items = size(dense_input, dim=1)
+    end if
 
-!     ! whole batch count; truncating remainder skips last partial batch
-!     batches = items / batch_size
-!     input_i = 1 ! index of batch examples in input
+    ! whole batch count; truncating remainder skips last partial batch
+    batches = items / batch_size
+    input_i = 1 ! index of batch examples in input
 
-!     ! allocate a prediction row for each row in input
-!     if (allocated(res)) then
-!         if (.not. all(shape(res) == [items, this%dnn%output%out_nodes])) then
-!             deallocate(res)
-!         end if
-!     end if
+    ! allocate a prediction row for each row in input
+    if (allocated(res)) then
+        if (.not. all(shape(res) == [items, this%dnn%output%out_nodes])) then
+            deallocate(res)
+        end if
+    end if
 
-!     if (.not. allocated(res)) then
-!         allocate(res(items, this%dnn%output%out_nodes))
-!     end if
+    if (.not. allocated(res)) then
+        allocate(res(items, this%dnn%output%out_nodes))
+    end if
 
-!     do i = 1, batches
-!         ! extract whole input batch (slice the batch items starting at i) 
-!         if (associated(this%cnn)) then
-!             conv_x = conv_input(:,:,:,(i-1)*batch_size+1:i*batch_size)
-!             call this%snn_forw_prop(conv_batch=conv_x)
-!         else
-!             dense_x = dense_input((i-1)*batch_size+1:i*batch_size,:)
-!             call this%snn_forw_prop(dense_batch=dense_x)
-!         end if
+    do i = 1, batches
+        ! extract whole input batch (slice the batch items starting at i) 
+        if (associated(this%cnn)) then
+            conv_x = conv_input(:,:,:,(i-1)*batch_size+1:i*batch_size)
+            call this%snn_forw_prop(conv_batch=conv_x)
+        else
+            dense_x = dense_input((i-1)*batch_size+1:i*batch_size,:)
+            call this%snn_forw_prop(dense_batch=dense_x)
+        end if
 
-!         ! record predictions
-!         res(input_i:input_i+batch_size-1, :) = this%dnn%output%a
-!         input_i = input_i + batch_size
-!     end do
+        ! record predictions
+        res(input_i:input_i+batch_size-1, :) = this%dnn%output%a
+        input_i = input_i + batch_size
+    end do
 
-!     ! predict for remaining inputs that were truncated above
-!     remain = items - batches * batch_size
+    ! predict for remaining inputs that were truncated above
+    remain = items - batches * batch_size
 
-!     if (remain > 0) then
-!         if (associated(this%cnn)) then
+    if (remain > 0) then
+        if (associated(this%cnn)) then
 
-!             ! handle if batch wasn't already made
-!             if (.not. allocated(conv_x)) then
-!                 allocate(conv_x(this%cnn%in_dims(1), &
-!                                 this%cnn%in_dims(2), &
-!                                 this%cnn%in_dims(3), &
-!                                 batch_size))
-!             end if
+            ! handle if batch wasn't already made
+            if (.not. allocated(conv_x)) then
+                allocate(conv_x(this%cnn%in_dims(1), &
+                                this%cnn%in_dims(2), &
+                                this%cnn%in_dims(3), &
+                                batch_size))
+            end if
 
-!             conv_x = 0
+            conv_x = 0
 
-!             ! batch currently allocated to proper batch shape;
-!             ! overwrite the items we need, ignore remainder
-!             conv_x(:,:,:,:remain) = conv_input(:,:,:,items-remain+1:)
-!             call this%snn_forw_prop(conv_batch=conv_x)
-!         else
-!             ! handle if batch wasn't already made
-!             if (.not. allocated(dense_x)) then
-!                 allocate(dense_x(batch_size, this%dnn%in_nodes))
-!             end if
+            ! batch currently allocated to proper batch shape;
+            ! overwrite the items we need, ignore remainder
+            conv_x(:,:,:,:remain) = conv_input(:,:,:,items-remain+1:)
+            call this%snn_forw_prop(conv_batch=conv_x)
+        else
+            ! handle if batch wasn't already made
+            if (.not. allocated(dense_x)) then
+                allocate(dense_x(batch_size, this%dnn%in_nodes))
+            end if
 
-!             dense_x = 0
+            dense_x = 0
 
-!             ! batch currently allocated to proper batch shape;
-!             ! overwrite the items we need, ignore remainder
-!             dense_x(:remain, :) = dense_input(items-remain+1:,:)
-!             call this%snn_forw_prop(dense_batch=dense_x)
-!         end if
+            ! batch currently allocated to proper batch shape;
+            ! overwrite the items we need, ignore remainder
+            dense_x(:remain, :) = dense_input(items-remain+1:,:)
+            call this%snn_forw_prop(dense_batch=dense_x)
+        end if
 
-!         ! fill last section of predictions with remaining items
-!         res(input_i:, :) = this%dnn%output%a(:remain, :)
-!     end if
-! end subroutine
+        ! fill last section of predictions with remaining items
+        res(input_i:, :) = this%dnn%output%a(:remain, :)
+    end if
+end subroutine
 
 !-------------------------------------------------------------------------------
 ! prints the dimensions output by each layer in this SeqNN

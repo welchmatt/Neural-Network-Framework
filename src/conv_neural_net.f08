@@ -1,18 +1,5 @@
 !-------------------------------------------------------------------------------
 ! neural network implementation that utilizes ConvLayers (convolutional)
-!
-! *** for now, this can only be used feeding into a DenseNN with DenseLayers,
-!     whereby the derivative wrt this ConvNN's output layer is calculated during
-!     backpropagation of the DenseLayers
-! *** this cannot be utilized as a network on its own, because calcualting the
-!     derivative of cost wrt output layer based on some labels is not
-!     implemented (which would only be used for a Fully Convolutional Network,
-!     whereby the output kernels are directly compared to labels, and not
-!     propagated directly to DenseLayers)
-! *** implementing this feature simply requires adjusting the cnn_out_delta
-!     function to accept labels and a loss function, and to calculate the proper
-!     derivative; for now, this feature is not needed, because I am not yet
-!     trying to model a Fully Convolutional Network
 !-------------------------------------------------------------------------------
 ! Matt Welch
 !-------------------------------------------------------------------------------
@@ -22,6 +9,12 @@ use net_helper_procedures
 use conv_layer_definitions
 use pool_layer_definitions
 implicit none
+
+!===============================================================================
+!===============================================================================
+! procedures with 4D array input require (rows, columns, channels, batches) form
+!===============================================================================
+!===============================================================================
 
 !===============================================================================
 ! types
@@ -95,7 +88,7 @@ end subroutine
 
 !===============================================================================
 ! ConvNN procedures
-!   *** all require input and labels in variables-as-columns form
+!   *** require input and targets as real(batch, rows, columns, channels) arrays
 !===============================================================================
 
 !-------------------------------------------------------------------------------
@@ -205,8 +198,6 @@ subroutine cnn_init(this, batch_size)
     this%is_init = .true.
     this%batch_size = batch_size
     call this%first_hid%conv_init(batch_size)
-
-    this%output%d = 0 ! for cnn_out_delta check: see below
 end subroutine
 
 !-------------------------------------------------------------------------------
@@ -222,54 +213,80 @@ subroutine cnn_forw_prop(this, input)
     real, intent(in) :: input(:,:,:,:)
 
     call this%first_hid%conv_forw_prop(input)
-
-    ! different activation function on output layer
-    ! a(l) = out_activ(z(l))
-    call out_activfunc(this%output%z, this%output%activ, this%output%a)
 end subroutine
 
 !-------------------------------------------------------------------------------
-! SEE FILE HEADER FOR DETAILS:
-! crashes if the delta for ConvNN has not been set, otherwise does nothing:
-!
-! for now, we require DenseLayers after ConvLayers, therefore the
-! output delta for the last ConvLayer is currently calculated by the DenseLayers
-!
-! cnn_init and and cnn_update sets this%output%d = 0, so it is clear to see if
-! the output delta has been set by another source
+! calculates delta for ConvNN's output layer (derivative of loss w.r.t. z)
 !-------------------------------------------------------------------------------
 ! this:     (ConvNN - implicitly passed)
+! targets:  (real(:,:,:,:)) targets we are trying to predict
+! loss:     (characters) loss function
 !-------------------------------------------------------------------------------
 ! alters :: program crashes if this ConvNN's output layer's d is not calculated
 !-------------------------------------------------------------------------------
-subroutine cnn_out_delta(this)
-    class(ConvNN) :: this
+subroutine cnn_out_delta(this, targets, loss)
+    class(ConvNN)            :: this
+    real, intent(in)         :: targets(:,:,:,:)
+    character(*), intent(in) :: loss
 
-    ! d explicitly set to 0 at start, so floating point comparison is exact
-    if (all(this%output%d == 0)) then
-        print *, '--------------------------------------'
-        print *, '(conv_neural_net :: cnn_out_delta)'
-        print *, 'output delta of ConvNN not calculated.'
-        print *, 'must add DenseLayers after.'
-        print *, '--------------------------------------'
-        stop -1
-    end if
+    select case (loss)
+        case ('mse')
+            select case(this%output%activ)
+                case ('sigmoid', 'relu', 'leaky_relu', 'elu')
+                    ! d(L) = (a(L) - targets) * out_activ_deriv(z(L));
+                    ! (these are implemented with element-wise derivatives)
+                    this%output%d = &
+                            (this%output%a - targets) * &
+                            activfunc_deriv(this%output%z, this%output%activ)
+
+                case default
+                    print *, '-----------------------------------------'
+                    print *, '(conv_neural_net :: cnn_out_delta)'
+                    print *, 'mse - invalid output activation function.'
+                    print *, 'supported: sigmoid, relu, leaky_relu, elu'
+                    print *, '-----------------------------------------'
+                    stop -1
+                end select
+
+        case default
+            print *, '----------------------------------'
+            print *, '(conv_neural_net :: cnn_out_delta)'
+            print *, 'invalid loss function.'
+            print *, 'supported: mse'
+            print *, '----------------------------------'
+            stop -1
+    end select
 end subroutine
 
 !-------------------------------------------------------------------------------
 ! wrapper subroutine to back propagate through ConvNN's ConvLayers;
 !-------------------------------------------------------------------------------
-! this:     (ConvNN - implicitly passed)
+! this:           (ConvNN - implicitly passed)
+! out_delta_done: (logical) true if output deltas calculated by other source
+!
+! targets:        (optional - real(:,:,:,:)) targets we are trying to predict
+! loss:           (optional - characters) loss function
 !-------------------------------------------------------------------------------
-! alters :: this ConvNN's ConvLayers' d's calculated
+! alters ::       this ConvNN's ConvLayers' d's calculated
 !-------------------------------------------------------------------------------
-subroutine cnn_back_prop(this, out_delta_done)
-    class(ConvNN)       :: this
-    logical, intent(in) :: out_delta_done
+subroutine cnn_back_prop(this, out_delta_done, targets, loss)
+    class(ConvNN)                      :: this
+    logical, intent(in)                :: out_delta_done
+    real, intent(in), optional         :: targets(:,:,:,:)
+    character(*), intent(in), optional :: loss
 
-    ! ensure out deltas are calculated
+    ! if out deltas not calculated by other source, we must calculate them
     if (.not. out_delta_done) then
-        call this%cnn_out_delta()
+        ! require targets and loss functino to calculate out deltas
+        if (.not. present(targets) .or. .not. present(loss)) then
+            print *, '------------------------------------------------'
+            print *, '(conv_neural_net :: cnn_back_prop)'
+            print *, 'must pass targets, loss to calculate out deltas.'
+            print *, '------------------------------------------------'
+            stop -1
+        end if
+        
+        call this%cnn_out_delta(targets, loss)
     end if
 
     if (associated(this%output%prev_layer)) then
@@ -292,8 +309,5 @@ subroutine cnn_update(this, input, learn_rate)
 
     ! first hid a(l-1) is input batch
     call this%first_hid%conv_update(input, learn_rate)
-
-    ! reset for next check; see cnn_out_delta and file header for details
-    this%output%d = 0
 end subroutine
 end module

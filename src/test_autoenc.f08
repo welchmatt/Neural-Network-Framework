@@ -1,6 +1,11 @@
 !-------------------------------------------------------------------------------
-! uses sequential neural network on MNIST dataset, which contains many
-! flattened 28x28x1 grayscale pictures of handwritten digits
+! TODO:
+!   * using this for testing with autoencoder (see sequential_neural_net.f08)
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+! uses sequential neural network as an autoencoder on MNIST dataset, which
+! contains many flattened 28x28x1 grayscale pictures of handwritten digits
 !
 ! CSV version of datset downloaded from:
 ! https://www.kaggle.com/oddrationale/mnist-in-csv

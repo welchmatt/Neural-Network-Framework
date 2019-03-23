@@ -92,7 +92,7 @@ end subroutine
 
 !===============================================================================
 ! DenseNN procedures
-!   *** all require input and labels in variables-as-columns form
+!   *** require input and labels in variables-as-columns form
 !===============================================================================
 
 !-------------------------------------------------------------------------------
@@ -165,7 +165,7 @@ subroutine dnn_forw_prop(this, input)
 
     ! different activation function on output layer
     ! a(l) = out_activ(z(l))
-    call out_activfunc(this%output%z, this%output%activ, this%output%a)
+    call out_activfunc_2D(this%output%z, this%output%activ, this%output%a)
 end subroutine
 
 !-------------------------------------------------------------------------------
@@ -210,16 +210,16 @@ subroutine dnn_out_delta(this, labels, loss)
                 print *, '---------------------------------------------------'
                 stop -1
             end if
-            ! d(L) = a(L) - labels;
-            ! (this is fun to prove)
+            
+            ! d(L) = a(L) - labels (this is fun to prove)
             this%output%d = this%output%a - labels
 
         case default
-            print *, '-------------------------------'
-            print *, '(dense_neural_net :: out_delta)'
+            print *, '-----------------------------------'
+            print *, '(dense_neural_net :: dnn_out_delta)'
             print *, 'invalid loss function.'
-            print *, 'supported: mse, softmax'
-            print *, '-------------------------------'
+            print *, 'supported: mse, cross_entropy'
+            print *, '-----------------------------------'
             stop -1
     end select
 end subroutine
@@ -227,11 +227,11 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! wrapper subroutine to back propagate through DenseNN's DenseLayers
 !-------------------------------------------------------------------------------
-! this:       (DenseNN - implicitly passed)
-! labels:     (real(:,:)) targets we are trying to predict
-! loss:       (characters) loss function
+! this:     (DenseNN - implicitly passed)
+! labels:   (real(:,:)) targets we are trying to predict
+! loss:     (characters) loss function
 !-------------------------------------------------------------------------------
-! alters ::   this DenseNN's DenseLayers' d's calculated
+! alters :: this DenseNN's DenseLayers' d's calculated
 !-------------------------------------------------------------------------------
 subroutine dnn_back_prop(this, labels, loss)
     class(DenseNN)           :: this

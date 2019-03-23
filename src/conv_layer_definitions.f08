@@ -10,6 +10,12 @@ use pool_layer_definitions
 implicit none
 
 !===============================================================================
+!===============================================================================
+! procedures with 4D array input require (rows, columns, channels, batches) form
+!===============================================================================
+!===============================================================================
+
+!===============================================================================
 ! types
 !===============================================================================
 
@@ -21,17 +27,17 @@ implicit none
 ! channels
 !
 ! each kernel is shared between images in a batch, and each produces an output
-! channel. kernels have 4D matrix dimensions: (height, width, channels, kernel)
+! channel. kernels have 4D matrix dimensions: (rows, columns, channels, batches)
 !
 ! the implementation here uses 'untied' biases, whereby the bias comprises
 ! multiple nodes to match the output channel produced by passing a kernel over
 ! an input. there is one copy that is shared between images. biases have 3D
-! matrix dimensions: (height, width, channels)
+! matrix dimensions: (rows, columns, channels)
 !
 ! weighted inputs, activations, and deltas match the output channel produced by
 ! passing a kernel over an input, and are passed between ConvLayers to preserve
 ! batch information. each have 4D matrices with dimensions:
-! (height, width, channels, batch_item)
+! (rows, columns, channels, batches)
 !
 ! an input image can have any number of channels (1 for grayscale, 3 for RGB);
 ! the third dimension for all of the matrices is the channels, so no special
@@ -47,7 +53,7 @@ type :: ConvLayer
     class(ConvLayer), pointer :: prev_layer, next_layer
     class(PoolLayer), pointer :: next_pool
     character(len=20)         :: pad, activ
-    ! dimension order: (height, width, channels, kernel/batch_item)
+    ! dimension order: (rows, columns, channels, batches)
     real, allocatable         :: k(:,:,:,:), & ! kernels
                                  b(:,:,:),   & ! biases
                                  z(:,:,:,:), & ! weighted inputs
@@ -217,14 +223,12 @@ subroutine conv_forw_prop(this, input)
                                      this%stride, z_slice)
 
         this%z(:,:,:,i) = z_slice + this%b
-
-        ! apply activation (if this is not output layer);
-        ! output layer has different activation function usage
-        if (associated(this%next_layer)) then
-            ! a(l) = activ(z(l))
-            this%a(:,:,:,i) = activfunc(this%z(:,:,:,i), this%activ)
-        end if
     end do
+
+    ! output activation cannot be softmax (or any "special case" function),
+    ! so we can call all activations in the same way
+    ! a(l) = activ(z(l))
+    this%a = activfunc(this%z, this%activ)
 
     ! forward prop activations through pool
     if (associated(this%next_pool)) then
@@ -277,11 +281,10 @@ subroutine conv_back_prop(this)
             ! no pooling to process
             this%d(:,:,:,i) = d_slice
         end if
-
-        ! derivative wrt z
-        this%d(:,:,:,i) = this%d(:,:,:,i) * activfunc_deriv(this%z(:,:,:,i), &
-                                                            this%activ)
     end do
+
+    ! derivative wrt z
+    this%d = this%d * activfunc_deriv(this%z, this%activ)
 
     ! traverse previous layers
     if (associated(this%prev_layer)) then
