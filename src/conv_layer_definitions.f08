@@ -218,9 +218,12 @@ subroutine conv_forw_prop(this, input)
 
         this%z(:,:,:,i) = z_slice + this%b
 
-        ! no unique ouput activation like DenseLayers (yet)
-        ! a(l) = activ(z(l))
-        this%a(:,:,:,i) = activfunc(this%z(:,:,:,i), this%activ)
+        ! apply activation (if this is not output layer);
+        ! output layer has different activation function usage
+        if (associated(this%next_layer)) then
+            ! a(l) = activ(z(l))
+            this%a(:,:,:,i) = activfunc(this%z(:,:,:,i), this%activ)
+        end if
     end do
 
     ! forward prop activations through pool

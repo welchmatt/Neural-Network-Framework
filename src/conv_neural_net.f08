@@ -220,7 +220,12 @@ end subroutine
 subroutine cnn_forw_prop(this, input)
     class(ConvNN)    :: this
     real, intent(in) :: input(:,:,:,:)
+
     call this%first_hid%conv_forw_prop(input)
+
+    ! different activation function on output layer
+    ! a(l) = out_activ(z(l))
+    call out_activfunc(this%output%z, this%output%activ, this%output%a)
 end subroutine
 
 !-------------------------------------------------------------------------------
@@ -258,11 +263,14 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! alters :: this ConvNN's ConvLayers' d's calculated
 !-------------------------------------------------------------------------------
-subroutine cnn_back_prop(this)
-    class(ConvNN) :: this
+subroutine cnn_back_prop(this, out_delta_done)
+    class(ConvNN)       :: this
+    logical, intent(in) :: out_delta_done
 
-    ! ensure they are set; see cnn_out_delta and file header for details
-    call this%cnn_out_delta()
+    ! ensure out deltas are calculated
+    if (.not. out_delta_done) then
+        call this%cnn_out_delta()
+    end if
 
     if (associated(this%output%prev_layer)) then
         call this%output%prev_layer%conv_back_prop()

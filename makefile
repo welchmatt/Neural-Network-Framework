@@ -49,19 +49,25 @@ MNIST_SRC = $(addprefix src/, $(MNIST_DEPS))
 MNIST_OBJ = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.o, $(MNIST_SRC))
 MNIST_MOD = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.mod, $(MNIST_SRC))
 
+# autoencoder test
+AUTOENC_DEPS = $(BASE_DEPS) test_autoenc.f08
+AUTOENC_SRC = $(addprefix src/, $(AUTOENC_DEPS))
+AUTOENC_OBJ = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.o, $(AUTOENC_SRC))
+AUTOENC_MOD = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.mod, $(AUTOENC_SRC))
+
 #-------------------------------------------------------------------------------
 # TEMPLATE: for implementing the framework in your own code;
 # simply substitute the assigned "YOUR_" variables to the names your want,
 # with your primary source that uses the framework in place of YOUR_FILE.f08.
 # you should include your source file in the src folder, along with all the
 # other source files for the framework:
-
+#
 # YOUR_DEPS = $(BASE_DEPS) YOUR_FILE.f08
 # YOUR_SRC = $(addprefix src/, $(YOUR_DEPS))
 # YOUR_OBJ = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.o, $(YOUR_SRC))
 # YOUR_MOD = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.mod, $(YOUR_SRC))
-
-# see below for final step in the implementation
+#
+# see below for next step in the implementation
 #-------------------------------------------------------------------------------
 
 default:
@@ -79,13 +85,21 @@ xor: $(XOR_OBJ)
 mnist: $(MNIST_OBJ)
 	$(FC) $(FFLAGS) -o $@ $^
 
-#-------------------------------------------------------------------------------
-# TEMPLATE: define how you want to compile your executable. with this structure:
-# compile: make YOUR_EXECUTABLE
-# run:	   ./YOUR_EXECUTABLE
+autoenc: $(AUTOENC_OBJ)
+	$(FC) $(FFLAGS) -o $@ $^
 
+#-------------------------------------------------------------------------------
+# TEMPLATE: define how you want to compile your executable with this structure:
+#
 # YOUR_EXECUTABLE: $(YOUR_OBJ)
 # 	$(FC) $(FFLAGS) -o $@ $^
+#
+# then, compile and run as:
+#
+# compile: make YOUR_EXECUTABLE
+# run:	   ./YOUR_EXECUTABLE
+#
+# see below for final step in the implementation
 #-------------------------------------------------------------------------------
 
 # create object files; -J specifies directory for mod files
@@ -96,10 +110,16 @@ clean:
 	-rm -f $(MDIR)/*.mod
 	-rm -f $(ODIR)/*.o
 
+#-------------------------------------------------------------------------------
+# TEMPLATE: define how to delete your file in allclean, as
+#
+# -rm -f YOUR_EXECUTABLE
+#-------------------------------------------------------------------------------
 allclean:
 	-rm -f $(MDIR)/*.mod
 	-rm -f $(ODIR)/*.o
 	-rm -f xor
 	-rm -f mnist
+	-rm -f autoenc
 
 .PHONY: default xor mnist clean allclean
