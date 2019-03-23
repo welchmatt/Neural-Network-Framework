@@ -4,3 +4,4 @@
 *.mod
 xor
 mnist
+autoenc
