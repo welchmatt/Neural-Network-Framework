@@ -68,6 +68,7 @@ function create_pool_layer(input_dims, kernel_dims, stride, pool, padding)
     class(PoolLayer), pointer :: create_pool_layer
     integer, intent(in)       :: input_dims(3), kernel_dims(2), stride(2)
     character(*), intent(in)  :: pool, padding
+    integer                   :: pad_rows, final_rows, pad_cols, final_cols
 
     allocate(create_pool_layer)
     create_pool_layer%in_dims = input_dims
@@ -76,17 +77,14 @@ function create_pool_layer(input_dims, kernel_dims, stride, pool, padding)
     create_pool_layer%pool    = pool
     create_pool_layer%pad     = padding
 
-    ! determine output shape from input pad then cross-correlation with kernel
-    if (padding == 'same') then
-        ! pads input so output has same size as input
-        create_pool_layer%out_rows = input_dims(1)
-        create_pool_layer%out_cols = input_dims(2)
-    else if (padding == 'valid') then
-        ! no padding
-        create_pool_layer%out_rows = (input_dims(1)-kernel_dims(1))/stride(1)+1
-        create_pool_layer%out_cols = (input_dims(2)-kernel_dims(2))/stride(2)+1
-    end if
+    ! determine output shape from input pad then applying kernel
+    pad_rows   = pad_calc(input_dims(1), kernel_dims(1), stride(1), padding)
+    pad_cols   = pad_calc(input_dims(2), kernel_dims(2), stride(2), padding)
+    final_rows = res_calc(input_dims(1)+pad_rows, kernel_dims(1), stride(1))
+    final_cols = res_calc(input_dims(2)+pad_cols, kernel_dims(2), stride(2))
 
+    create_pool_layer%out_rows     = final_rows
+    create_pool_layer%out_cols     = final_cols
     create_pool_layer%out_channels = input_dims(3) ! channels not altered
 
     ! outward facing node count

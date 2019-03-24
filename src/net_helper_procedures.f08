@@ -511,33 +511,33 @@ subroutine one_hot_encode_special(a, classes, res)
 end subroutine
 
 !-------------------------------------------------------------------------------
-! returns the rows to add (NOT INCLUDING base rows) needed to support a given&
+! returns the amount to add (NOT INCLUDING base dims) needed to support a given
 ! padding scheme, with a given kernel passing over a given array
 !-------------------------------------------------------------------------------
-! a_rows:      (integer) base array rows
-! kernel_rows: (integer) kernel rows
-! stride_rows: (integer) size of kernel moves in y direction
-! padding:     (characters) padding type
+! a_dim:      (integer) base array dimension
+! kernel_dim: (integer) kernel dimension
+! stride_dim: (integer) size of kernel moves in y direction
+! padding:    (characters) padding type
 !-------------------------------------------------------------------------------
-! returns ::   rows to pad to support given padding scheme
+! returns ::  amount to pad to support given padding scheme
 !-------------------------------------------------------------------------------
-integer function pad_rows(a_rows, kernel_rows, stride_rows, padding)
-    integer, intent(in)      :: a_rows, kernel_rows, stride_rows
+integer function pad_calc(a_dim, kernel_dim, stride_dim, padding)
+    integer, intent(in)      :: a_dim, kernel_dim, stride_dim
     character(*), intent(in) :: padding
 
     select case(padding)
         case ('same')
             ! pads input so output has same size as input
-            pad_rows = (stride_rows - 1) * a_rows - stride_rows + kernel_rows
+            pad_calc = (stride_dim - 1) * a_dim - stride_dim + kernel_dim
         case ('full')
             ! pads input so kernel can overlap it by one unit on all sides
-            pad_rows = 2 * kernel_rows - 2
+            pad_calc = 2 * kernel_dim - 2
         case ('valid')
             ! no padding
-            pad_rows = 0
+            pad_calc = 0
         case default
             print *, '----------------------------------'
-            print *, '(net_helper_functions :: pad_rows)'
+            print *, '(net_helper_functions :: pad_calc)'
             print *, 'invalid padding type.'
             print *, 'supported: same, valid, full'
             print *, '----------------------------------'
@@ -546,38 +546,20 @@ integer function pad_rows(a_rows, kernel_rows, stride_rows, padding)
 end function
 
 !-------------------------------------------------------------------------------
-! returns the cols to add (NOT INCLUDING base cols) needed to support a given&
-! padding scheme, with a given kernel passing over a given array
+! returns the size of a dimension after being passed over with 'valid'
+! cross correlation; typically used by first calculating the pad and including
+! that total amaount as the a_dim
 !-------------------------------------------------------------------------------
-! a_cols:      (integer) base array cols
-! kernel_cols: (integer) kernel cols
-! stride_cols: (integer) size of kernel moves in x direction
-! padding:     (characters) padding type
+! a_dim:      (integer) base array dimension
+! kernel_dim: (integer) kernel dimension
+! stride_dim: (integer) size of kernel moves in y direction
 !-------------------------------------------------------------------------------
-! returns ::   cols to pad to support given padding scheme
+! returns ::  resulting dim size
 !-------------------------------------------------------------------------------
-integer function pad_cols(a_cols, kernel_cols, stride_cols, padding)
-    integer, intent(in)      :: a_cols, kernel_cols, stride_cols
-    character(*), intent(in) :: padding
+integer function res_calc(a_dim, kernel_dim, stride_dim)
+    integer, intent(in) :: a_dim, kernel_dim, stride_dim
 
-    select case(padding)
-        case ('same')
-            ! pads input so output has same size as input
-            pad_cols = (stride_cols - 1) * a_cols - stride_cols + kernel_cols
-        case ('full')
-            ! pads input so kernel can overlap it by one unit on all sides
-            pad_cols = 2 * kernel_cols - 2
-        case ('valid')
-            ! no padding
-            pad_cols = 0
-        case default
-            print *, '----------------------------------'
-            print *, '(net_helper_functions :: pad_cols)'
-            print *, 'invalid padding type.'
-            print *, 'supported: same, valid, full'
-            print *, '----------------------------------'
-            stop -1
-    end select
+    res_calc = (a_dim - kernel_dim) / stride_dim + 1
 end function
 
 !-------------------------------------------------------------------------------
@@ -602,8 +584,8 @@ subroutine pad_2D(a, padding, kernel_dims, stride, res)
     a_rows = size(a, dim=1)
     a_cols = size(a, dim=2)
 
-    row_pad = pad_rows(a_rows, kernel_dims(1), stride(1), padding)
-    col_pad = pad_cols(a_cols, kernel_dims(2), stride(2), padding)
+    row_pad = pad_calc(a_rows, kernel_dims(1), stride(1), padding)
+    col_pad = pad_calc(a_cols, kernel_dims(2), stride(2), padding)
 
     ! if total pad number odd: top/left get rounded down amount,
     ! (bottom/right get remainder)
@@ -649,8 +631,8 @@ subroutine pad_3D(a, padding, kernel_dims, stride, res)
     a_cols     = size(a, dim=2)
     a_channels = size(a, dim=3)
 
-    row_pad = pad_rows(a_rows, kernel_dims(1), stride(1), padding)
-    col_pad = pad_cols(a_cols, kernel_dims(2), stride(2), padding)
+    row_pad = pad_calc(a_rows, kernel_dims(1), stride(1), padding)
+    col_pad = pad_calc(a_cols, kernel_dims(2), stride(2), padding)
 
     ! if total pad number odd: top/left get rounded down amount,
     ! (bottom/right get remainder)
@@ -761,8 +743,8 @@ subroutine cross_correlate_2D(a, padding, kernel, stride, res)
     padded_cols = size(padded, dim=2)
 
     ! dimensions of cross-correlation result
-    res_rows = (padded_rows - k_rows) / stride(1) + 1
-    res_cols = (padded_cols - k_cols) / stride(2) + 1
+    res_rows = res_calc(padded_rows, k_rows, stride(1))
+    res_cols = res_calc(padded_cols, k_cols, stride(2))
 
     ! create new array if not correct size
     if (allocated(res)) then
@@ -827,8 +809,8 @@ subroutine cross_correlate_3D(a, padding, kernel, stride, res)
     padded_cols = size(padded, dim=2)
 
     ! dimensions of cross-correlation result
-    res_rows = (padded_rows - k_rows) / stride(1) + 1
-    res_cols = (padded_cols - k_cols) / stride(2) + 1
+    res_rows = res_calc(padded_rows, k_rows, stride(1))
+    res_cols = res_calc(padded_cols, k_cols, stride(2))
 
     ! create new array if not correct size
     if (allocated(res)) then
@@ -887,6 +869,39 @@ subroutine convolve_2D(a, padding, kernel, stride, res)
 end subroutine
 
 !-------------------------------------------------------------------------------
+! calculates the convolution between a 3D array and a 3D kernel
+!-------------------------------------------------------------------------------
+! a:        (real(:,:,:)) base array
+! padding:  (characters) padding type
+! kernel:   (real(:,:,:)) kernal to pass over a
+! stride:   (integer(2)) size of kernel moves in (y, x) directions
+! res:      (real(:,:)) stores the output (only 1 channel output from dot-prod)
+!-------------------------------------------------------------------------------
+! alters :: res becomes convolution result
+!-------------------------------------------------------------------------------
+subroutine convolve_3D(a, padding, kernel, stride, res)
+    real, intent(in)         :: a(:,:,:), kernel(:,:,:)
+    character(*), intent(in) :: padding
+    integer, intent(in)      :: stride(2)
+    real, allocatable        :: res(:,:), rot_kernel(:,:,:)
+    integer                  :: rows, cols, chans, c
+
+    rows  = size(kernel, dim=1)
+    cols  = size(kernel, dim=2)
+    chans = size(kernel, dim=3)
+
+    allocate(rot_kernel(rows, cols, chans))
+
+    ! rotate kernel 180 degrees
+    do c = 1, cols
+        ! res column from left is reverse of column of a from right (all depth)
+        rot_kernel(:,c,:) = kernel(rows:1:-1, cols+1-c, :)
+    end do
+
+    call cross_correlate_3D(a, padding, rot_kernel, stride, res)
+end subroutine
+
+!-------------------------------------------------------------------------------
 ! calculate the cross-correlation between the 3D input and each 3D kernel (in
 ! 4D array)
 !
@@ -914,6 +929,59 @@ subroutine cross_correlate_3D_forw(input, padding, kernel, stride, res)
     do k = 1, kernels
         call cross_correlate_3D(input, padding, kernel(:,:,:,k), stride, &
                                 res_channel)
+
+        ! create new array if not correct size
+        if (allocated(res)) then
+            if (.not. all(shape(res(:,:,1)) == shape(res_channel)) .or. &
+                size(res, dim=3) /= kernels) then
+                deallocate(res)
+            end if
+        end if
+
+        if (.not. allocated(res)) then
+            allocate(res(size(res_channel, dim=1), size(res_channel, dim=2), &
+                         kernels))
+        end if
+
+        res(:,:,k) = res_channel
+    end do
+end subroutine
+
+!-------------------------------------------------------------------------------
+! calculate the transpose convolution between the 3D input and each 3D kernel
+! (in 4D array)
+!
+! helper for conv_neural_net forward propagation for UPSAMPLING;
+! opposite direction of cross_correlate_3D_back and transpose_convolve_3D_back
+!-------------------------------------------------------------------------------
+! input:    (real(:,:,:)) base array
+! padding:  (characters) padding type
+! kernel:   (real(:,:,:,:)) channels of 3D kernels
+! stride:   (integer(2)) size of kernel moves in (y, x) directions
+! res:      (real(:,:,:)) stores the output
+!-------------------------------------------------------------------------------
+! alters :: res becomes 3D cross-correlation forward prop result
+!-------------------------------------------------------------------------------
+subroutine transpose_convolve_3D_forw(input, padding, kernel, stride, res)
+    real, intent(in)         :: input(:,:,:), kernel(:,:,:,:)
+    character(*), intent(in) :: padding
+    integer, intent(in)      :: stride(2)
+    real, allocatable        :: res(:,:,:), res_channel(:,:)
+    integer                  :: kernels, k
+
+    if (padding /= 'full') then
+        print *, '----------------------------------------------------'
+        print *, '(net_helper_functions :: transpose_convolve_3D_forw)'
+        print *, 'must use full padding.'
+        print *, '----------------------------------------------------'
+        stop -1
+    end if
+
+    kernels = size(kernel, dim=4)
+
+    ! convolve each kernel with input
+    do k = 1, kernels
+        call convolve_3D(input, padding, kernel(:,:,:,k), stride, res_channel)
 
         ! create new array if not correct size
         if (allocated(res)) then
@@ -1109,8 +1177,8 @@ subroutine max_pool_2D(a, padding, kernel_dims, stride, res, res_idxs)
     left_pad = (padded_cols - a_cols) / 2
 
     ! dimensions of pooling result
-    res_rows = (padded_rows - k_rows) / stride(1) + 1
-    res_cols = (padded_cols - k_cols) / stride(2) + 1
+    res_rows = res_calc(padded_rows, k_rows, stride(1))
+    res_cols = res_calc(padded_cols, k_cols, stride(2))
 
     ! create new array if not correct size
     if (allocated(res)) then
