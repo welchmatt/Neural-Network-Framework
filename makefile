@@ -19,7 +19,7 @@ FFLAGS = -O3
 # they are implicitly allocated). the compiler complains in such cases, but the
 # output is unaffected (because it abides by the Fortran standard):
 
-FFLAGS = -Wall -Wextra -fsanitize=undefined -fsanitize=address -O3
+# FFLAGS = -Wall -Wextra -fsanitize=undefined -fsanitize=address -O3
 
 # directory structure; put all source files in src
 SDIR = src

@@ -88,6 +88,7 @@ function create_conv_layer(input_dims, kernels, kernel_dims, stride, &
     integer, intent(in)       :: input_dims(3), kernels, kernel_dims(2), &
                                  stride(2)
     character(*), intent(in)  :: activ, padding
+    integer                   :: pad_rows, final_rows, pad_cols, final_cols
 
     allocate(create_conv_layer)
     create_conv_layer%in_dims    =  input_dims
@@ -99,17 +100,14 @@ function create_conv_layer(input_dims, kernels, kernel_dims, stride, &
     create_conv_layer%next_layer => null()
     create_conv_layer%next_pool  => null()
 
-    ! determine output shape from input pad then cross-correlation with kernel
-    if (padding == 'same') then
-        ! pads input so output has same size as input
-        create_conv_layer%out_rows = input_dims(1)
-        create_conv_layer%out_cols = input_dims(2)
-    else if (padding == 'valid') then
-        ! no padding
-        create_conv_layer%out_rows = (input_dims(1)-kernel_dims(1))/stride(1)+1
-        create_conv_layer%out_cols = (input_dims(2)-kernel_dims(2))/stride(2)+1
-    end if
+    ! determine output shape from input pad then applying kernel
+    pad_rows   = pad_calc(input_dims(1), kernel_dims(1), stride(1), padding)
+    pad_cols   = pad_calc(input_dims(2), kernel_dims(2), stride(2), padding)
+    final_rows = res_calc(input_dims(1)+pad_rows, kernel_dims(1), stride(1))
+    final_cols = res_calc(input_dims(2)+pad_cols, kernel_dims(2), stride(2))
 
+    create_conv_layer%out_rows     = final_rows
+    create_conv_layer%out_cols     = final_cols
     create_conv_layer%out_channels = kernels
 
     ! outward facing node count

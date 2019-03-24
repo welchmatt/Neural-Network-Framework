@@ -173,6 +173,19 @@ program main
                                 activ       = 'relu', &
                                 padding     = 'valid')
 
+    ! should upsample back to starting size
+    call snn%snn_add_conv_layer(kernels     = 64, &
+                                kernel_dims = [3,3], &
+                                stride      = [1,1], &
+                                activ       = 'relu', &
+                                padding     = 'full')
+
+    call snn%snn_add_conv_layer(kernels     = 32, &
+                                kernel_dims = [3,3], &
+                                stride      = [1,1], &
+                                activ       = 'relu', &
+                                padding     = 'full')
+
     ! call snn%snn_add_pool_layer(kernel_dims = [2,2], &
     !                             stride      = [2,2], &
     !                             pool        = 'max', &
