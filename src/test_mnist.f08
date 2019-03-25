@@ -36,8 +36,8 @@ program main
                              pixels, row, i
     real                  :: accuracy
 
-    train_rows = 100
-    test_rows = 100
+    train_rows = 60000
+    test_rows = 10000
     variables = 785
     pixels = variables - 1
     classes = 10
@@ -189,7 +189,7 @@ program main
 
     call snn%snn_fit(conv_input   = train_images, &
                      train_labels = train_y_onehot, &
-                     batch_size   = 50, &
+                     batch_size   = 128, &
                      epochs       = 2, &
                      learn_rate   = 0.1, &
                      loss         = 'cross_entropy', &
