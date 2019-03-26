@@ -1050,8 +1050,7 @@ subroutine snn_summary(this)
 
             curr_dense => curr_dense%next_layer
         end do
-
-        print *, '----------------------'
     end if
+    print *, '----------------------'
 end subroutine
 end module
