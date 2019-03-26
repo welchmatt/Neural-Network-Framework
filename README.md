@@ -1,5 +1,5 @@
 # Neural-Network-Framework
-A high-level neural network framework, written in Fortran with no external libraries.  Provides support for convolutional, pooling, and dense layers, with an API inspired by Keras.  Currently, I am in the process of finalizing deconvolutional layers and implementing unpooling layers, and creating a test using the framework to build an autoencoder.
+A high-level neural network framework, written in Fortran with no external libraries.  Provides support for convolutional, deconvolutional, pooling, and dense layers, with an API inspired by Keras.  Currently, I am in the process of implementing unpooling layers, and creating a test using the framework to build an autoencoder.
 
 The following is an example CNN to predict on the MNIST dataset (see Tests below, and test_mnist.f08 in src folder).  The name "snn" stands for "sequential neural network," as in Keras, which is used as the foundation for adding different layers.
 ```fortran
@@ -120,6 +120,31 @@ make xor
 ./xor
 ```
 
+### test_autoenc.f08
+Right now, this just has a sanity check for deconvolutional layers (convolutional layers with "full" padding).  For now, creates an autoencoder-styled network:
+```
+----------------------
+ dimensions:               rows        cols    channels
+ -----------
+ ConvLayer input:            28          28           1
+ ConvLayer output:           26          26          32
+ ConvLayer output:           24          24          64
+ ConvLayer output:           26          26          32
+ ConvLayer output:           28          28           1
+ -----------
+ ----------------------
+```
+Then trains the model on a batch of 5 images over multiple epochs; the loss successfully decreases over time.
+
+Compile and run with:
+```
+make autoenc
+./autoenc
+```
+
+I am working on expanding this to a full autoencoder test, with further visualization of the results in Python.
+
+### Cleanup
 All compiled files and executables can be removed with: 
 ```
 make allclean
