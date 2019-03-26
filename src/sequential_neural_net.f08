@@ -1,9 +1,7 @@
 !-------------------------------------------------------------------------------
 ! TODO:
-!   * allow for fully-convolutional networks
-!       * need to define deconvolutional and unpooling layers, and plug those
-!         into existing ConvNN framework
-!       * then, make adjustments here to handle ConvNN-only and DenseNN-only
+!   * update snn_one_hot_accuracy, snn_regression_loss, snn_predict
+!     to handle only ConvNN present
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
@@ -417,20 +415,30 @@ end subroutine
 ! wrapper to back propagate through SeqNN's DenseNN then ConvNN
 !-------------------------------------------------------------------------------
 ! this:     (SeqNN - implicitly passed)
-! labels:   (real(:,:)) targets we are trying to predict
 ! loss:     (characters) loss function
+!
+! labels:   (optional - real(:,:)) labels we are trying to predict
+! images:   (optional - real(:,:,:,:)) images we are trying to predict
 !-------------------------------------------------------------------------------
 ! alters :: this SeqNN's ConvNN and DenseNN layers' d's are calculated
 !-------------------------------------------------------------------------------
-subroutine snn_back_prop(this, labels, loss)
-    class(SeqNN)             :: this
-    real, intent(in)         :: labels(:,:)
-    character(*), intent(in) :: loss
-    logical                  :: out_delta_done
+subroutine snn_back_prop(this, loss, labels, images)
+    class(SeqNN)               :: this
+    character(*), intent(in)   :: loss
+    real, intent(in), optional :: labels(:,:), images(:,:,:,:)
+    logical                    :: out_delta_done
 
     out_delta_done = .false.
 
     if (associated(this%dnn)) then
+        if (.not. present(labels) .or. present(images)) then
+            print *, '----------------------------------------'
+            print *, '(sequential_neural_net :: snn_back_prop)'
+            print *, 'DenseLayer output: only pass labels.'
+            print *, '----------------------------------------'
+            stop -1
+        end if
+
         call this%dnn%dnn_back_prop(labels, loss)
 
         if (associated(this%cnn)) then
@@ -441,7 +449,21 @@ subroutine snn_back_prop(this, labels, loss)
 
     ! continue backprop through cnn
     if (associated(this%cnn)) then
-        call this%cnn%cnn_back_prop(out_delta_done)
+        if (out_delta_done) then
+            ! fed by dnn
+            call this%cnn%cnn_back_prop(out_delta_done)
+        else
+            ! not fed by dnn; find loss directly
+            if (.not. present(images) .or. present(labels)) then
+                print *, '----------------------------------------'
+                print *, '(sequential_neural_net :: snn_back_prop)'
+                print *, 'ConvLayer output: only pass images.'
+                print *, '----------------------------------------'
+                stop -1
+            end if
+
+            call this%cnn%cnn_back_prop(out_delta_done, images, loss)
+        end if
     end if
 end subroutine
 
@@ -525,7 +547,6 @@ end subroutine
 ! must only pass dense_input if no ConvLayers present
 !-------------------------------------------------------------------------------
 ! this:         (SeqNN - implicitly passed)
-! train_labels: (real(:,:)) all targets we are trying to predict
 ! batch_size:   (integer) examples to process before back prop
 ! epochs:       (integer) how many times to pass over all the training data
 ! learn_rate:   (real) scale factor for change in kernels and biases
@@ -533,22 +554,26 @@ end subroutine
 !
 ! conv_input:   (optional - real(:,:,:,:)) input for ConvLayers
 ! dense_input:  (optional - real(:,:)) input for DenseLayers
+! train_labels: (optional - real(:,:)) all targets we are trying to predict
+! train_images: (optional - real(:,:,:,:)) all images we are trying to predict
 ! verbose:      (optional - integer) 0 = none, 1 = epochs, 2 = 1 + batch status
 !-------------------------------------------------------------------------------
 ! alters ::    - this SeqNN fit to minimize loss on training data
 !              - train_labels, [conv_input, dense_input] shuffled in place
 !-------------------------------------------------------------------------------
-subroutine snn_fit(this, train_labels, batch_size, epochs, learn_rate, loss, &
-                   conv_input, dense_input, verbose)
+subroutine snn_fit(this, batch_size, epochs, learn_rate, loss, &
+                   conv_input, dense_input, verbose, train_labels, train_images)
     class(SeqNN)             :: this
-    real                     :: train_labels(:,:)
     integer, intent(in)      :: batch_size, epochs
     real, intent(in)         :: learn_rate
     character(*), intent(in) :: loss
-    real, optional           :: conv_input(:,:,:,:), dense_input(:,:)
+    real, optional           :: conv_input(:,:,:,:), dense_input(:,:), &
+                                train_labels(:,:), train_images(:,:,:,:)
     integer, optional        :: verbose
-    real, allocatable        :: conv_x(:,:,:,:), dense_x(:,:), labels(:,:)
+    real, allocatable        :: conv_x(:,:,:,:), dense_x(:,:), &
+                                labels(:,:), images(:,:,:,:)
     integer                  :: batches, input_i, i, j
+    real                     :: loss_val
 
     if (.not. this%is_init) then
         call this%snn_init(batch_size)
@@ -580,6 +605,26 @@ subroutine snn_fit(this, train_labels, batch_size, epochs, learn_rate, loss, &
         batches = size(dense_input, dim=1) / batch_size
     end if
 
+    if (associated(this%dnn)) then
+        ! dnn output, must pass train_labels
+        if (.not. present(train_labels) .or. present(train_images)) then
+            print *, '-----------------------------------------'
+            print *, '(sequential_neural_net :: snn_fit)'
+            print *, 'DenseLayer output: only pass train_labels.'
+            print *, '-----------------------------------------'
+            stop -1
+        end if
+    else
+        ! cnn output, must pass train_images
+        if (.not. present(train_images) .or. present(train_labels)) then
+            print *, '-----------------------------------------'
+            print *, '(sequential_neural_net :: snn_fit)'
+            print *, 'ConvLayer output: only pass train_images.'
+            print *, '-----------------------------------------'
+            stop -1
+        end if
+    end if
+
     do i = 1, epochs
         if (present(verbose) .and. verbose > 0) then
             print *, 'epoch:', i
@@ -589,9 +634,16 @@ subroutine snn_fit(this, train_labels, batch_size, epochs, learn_rate, loss, &
 
         ! shuffle input and labels to same new ordering (improves training)
         if (associated(this%cnn)) then
-            call pair_shuffle_channels_4D(conv_input, train_labels)
+            if (associated(this%dnn)) then
+                ! cnn input, dnn output
+                call pair_shuffle_4D_2D(conv_input, train_labels)
+            else
+                ! cnn input and output
+                call pair_shuffle_4D_4D(conv_input, train_images)
+            end if
         else
-            call pair_shuffle_rows_2D(dense_input, train_labels)
+            ! dnn input and output
+            call pair_shuffle_2D_2D(dense_input, train_labels)
         end if
         
         do j = 1, batches
@@ -604,18 +656,30 @@ subroutine snn_fit(this, train_labels, batch_size, epochs, learn_rate, loss, &
             ! extract corresponding batches of input and labels
             ! (slice the batch rows starting at input_i)
             if (associated(this%cnn)) then
-                conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
-                labels = train_labels(input_i:input_i+batch_size-1, :)
+                if (associated(this%dnn)) then
+                    ! cnn input, dnn output
+                    conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
+                    labels = train_labels(input_i:input_i+batch_size-1, :)
 
-                call this%snn_forw_prop(conv_batch=conv_x)
-                call this%snn_back_prop(labels, loss)
-                call this%snn_update(learn_rate, conv_batch=conv_x)
+                    call this%snn_forw_prop(conv_batch=conv_x)
+                    call this%snn_back_prop(loss, labels=labels)
+                    call this%snn_update(learn_rate, conv_batch=conv_x)
+                else
+                    ! cnn input and output
+                    conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
+                    images = train_images(:,:,:,input_i:input_i+batch_size-1)
+
+                    call this%snn_forw_prop(conv_batch=conv_x)
+                    call this%snn_back_prop(loss, images=images)
+                    call this%snn_update(learn_rate, conv_batch=conv_x)
+                end if
             else
+                ! dnn input and output
                 dense_x = dense_input(input_i:input_i+batch_size-1, :)
                 labels = train_labels(input_i:input_i+batch_size-1, :)
 
                 call this%snn_forw_prop(dense_batch=dense_x)
-                call this%snn_back_prop(labels, loss)
+                call this%snn_back_prop(loss, labels=labels)
                 call this%snn_update(learn_rate, dense_batch=dense_x)
             end if
 
@@ -624,9 +688,19 @@ subroutine snn_fit(this, train_labels, batch_size, epochs, learn_rate, loss, &
 
         if (present(verbose) .and. verbose > 0) then
             if (mod(i, 5) == 0) then
+
+                if (associated(this%dnn)) then
+                    ! dnn output
+                    loss_val = lossfunc_2D(this%dnn%output%a, labels, loss)
+                else
+                    ! cnn output
+                    !@@@@@@@@@@@!@@@@@@@@@@@!@@@@@@@@@@@!@@@@@@@@@@@!@@@@@@@@@@@!@@@@@@@@@@@ WATCH OUT FOR POOL
+                    loss_val = lossfunc_4D(this%cnn%output%a, images, loss)
+                end if
+
                 print *, '----------------------'
                 print *, 'last train batch loss:'
-                print *, lossfunc_2D(this%dnn%output%a, labels, loss)
+                print *, loss_val
                 print *, '----------------------'
             end if
         end if

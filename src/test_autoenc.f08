@@ -1,6 +1,7 @@
 !-------------------------------------------------------------------------------
 ! TODO:
-!   * using this for testing with autoencoder (see sequential_neural_net.f08)
+!       * this test is currently just a sanity check for deconvolution.
+!         implement full test
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
@@ -33,121 +34,110 @@ program main
     implicit none
 
     class(SeqNN), pointer :: snn
-    ! real, allocatable     :: image(:,:,:), train_images(:,:,:,:), &
-    !                          test_images(:,:,:,:), train(:,:), test(:,:), &
-    !                          train_x(:,:), train_y(:), test_x(:,:), test_y(:), &
-    !                          train_y_onehot(:,:), test_y_onehot(:,:)
-    ! integer               :: train_rows, test_rows, variables, classes, &
-    !                          pixels, row, i
+    real, allocatable     :: image(:,:,:), train_images(:,:,:,:), &
+                             test_images(:,:,:,:), train(:,:), test(:,:), &
+                             train_x(:,:), test_x(:,:)
+    integer               :: train_rows, test_rows, variables, classes, &
+                             pixels, row, i
     ! real                  :: accuracy
 
-    ! train_rows = 5
-    ! test_rows = 5
-    ! variables = 785
-    ! pixels = variables - 1
-    ! classes = 10
+    train_rows = 5
+    test_rows = 5
+    variables = 785
+    pixels = variables - 1
+    classes = 10
 
-    ! !===========================================================================
-    ! !===========================================================================
-    ! ! data processing
-    ! !===========================================================================
-    ! !===========================================================================
+    !===========================================================================
+    !===========================================================================
+    ! data processing
+    !===========================================================================
+    !===========================================================================
 
-    ! !---------------------------------------------------------------------------
-    ! ! read train data
+    !---------------------------------------------------------------------------
+    ! read train data
 
-    ! print *, '----------------------'
-    ! print *, 'processing train data:'
+    print *, '----------------------'
+    print *, 'processing train data:'
 
-    ! allocate(train(train_rows, variables))
+    allocate(train(train_rows, variables))
 
-    ! open(unit=1, form='formatted', file='mnist-in-csv/mnist_train.csv')
-    ! read(unit=1, fmt=*) ! skip header line
+    open(unit=1, form='formatted', file='mnist-in-csv/mnist_train.csv')
+    read(unit=1, fmt=*) ! skip header line
 
-    ! do row = 1, train_rows
-    !     read(unit=1, fmt=*) train(row,:)
-    ! end do
+    do row = 1, train_rows
+        read(unit=1, fmt=*) train(row,:)
+    end do
 
-    ! close(unit=1)
+    close(unit=1)
 
-    ! !---------------------------------------------------------------------------
-    ! ! split train data, one hot encode labels
+    !---------------------------------------------------------------------------
+    ! separate train labels from pixels
+    train_x = train(:,2:) / 255 ! scale pixels to [0,1]
 
-    ! ! separate train labels and pixels
-    ! train_x = train(:,2:) / 255 ! scale pixels to [0,1]
-    ! train_y = train(:,1)
+    deallocate(train)
 
-    ! call one_hot_encode_special(train_y, classes, train_y_onehot)
+    !---------------------------------------------------------------------------
+    ! reshape train examples from dimension 1x784 to 28x28x1 
 
-    ! deallocate(train, train_y)
+    allocate(train_images(28,28,1,train_rows))
 
-    ! !---------------------------------------------------------------------------
-    ! ! reshape train examples from dimension 1x784 to 28x28x1 
+    do i = 1, train_rows
+        ! 28x28x1 array filled column-major order
+        image = reshape(train_x(i,:), [28,28,1])
 
-    ! allocate(train_images(28,28,1,train_rows))
+        ! transpose gives "expected" order
+        image(:,:,1) = transpose(image(:,:,1))
 
-    ! do i = 1, train_rows
-    !     ! 28x28x1 array filled column-major order
-    !     image = reshape(train_x(i,:), [28,28,1])
+        train_images(:,:,:,i) = image
+    end do
 
-    !     ! transpose gives "expected" order
-    !     image(:,:,1) = transpose(image(:,:,1))
+    deallocate(train_x)
 
-    !     train_images(:,:,:,i) = image
-    ! end do
+    print *, 'done'
+    print *, '----------------------'
 
-    ! deallocate(train_x)
+    !---------------------------------------------------------------------------
+    ! read test data
 
-    ! print *, 'done'
-    ! print *, '----------------------'
+    print *, '----------------------'
+    print *, 'processing test data:'
 
-    ! !---------------------------------------------------------------------------
-    ! ! read test data
+    allocate(test(test_rows, variables))
 
-    ! print *, '----------------------'
-    ! print *, 'processing test data:'
+    open(unit=2, form='formatted', file='mnist-in-csv/mnist_test.csv')
+    read(unit=2, fmt=*) ! skip header line
 
-    ! allocate(test(test_rows, variables))
+    do row = 1, test_rows
+        read(unit=2, fmt=*) test(row,:)
+    end do
 
-    ! open(unit=2, form='formatted', file='mnist-in-csv/mnist_test.csv')
-    ! read(unit=2, fmt=*) ! skip header line
+    close(unit=2)
 
-    ! do row = 1, test_rows
-    !     read(unit=2, fmt=*) test(row,:)
-    ! end do
+    !---------------------------------------------------------------------------
+    ! separate test labels from pixels
+    test_x = test(:,2:) / 255 ! scale to [0,1]
 
-    ! close(unit=2)
+    deallocate(test)
 
-    ! !---------------------------------------------------------------------------
-    ! ! split test data, one hot encode labels
+    !---------------------------------------------------------------------------
+    ! reshape test examples from dimension 1x784 to 28x28x1 
 
-    ! ! separate test labels and pixels
-    ! test_x = test(:,2:) / 255 ! scale to [0,1]
-    ! test_y = test(:,1)
+    allocate(test_images(28,28,1,test_rows))
 
-    ! call one_hot_encode_special(test_y, classes, test_y_onehot)
+    do i = 1, test_rows
+        ! 28x28x1 array filled column-major order
+        image = reshape(test_x(i,:), [28,28,1])
 
-    ! deallocate(test, test_y)
+        ! transpose gives "expected" order
+        image(:,:,1) = transpose(image(:,:,1))
 
-    ! !---------------------------------------------------------------------------
-    ! ! reshape test examples from dimension 1x784 to 28x28x1 
+        test_images(:,:,:,i) = image
+    end do
 
-    ! allocate(test_images(28,28,1,test_rows))
+    deallocate(test_x, image)
 
-    ! do i = 1, test_rows
-    !     ! 28x28x1 array filled column-major order
-    !     image = reshape(test_x(i,:), [28,28,1])
-
-    !     ! transpose gives "expected" order
-    !     image(:,:,1) = transpose(image(:,:,1))
-
-    !     test_images(:,:,:,i) = image
-    ! end do
-
-    ! deallocate(test_x, image)
-
-    ! print *, 'done'
-    ! print *, '----------------------'
+    print *, 'done'
+    print *, '----------------------'
 
     !===========================================================================
     !===========================================================================
@@ -160,6 +150,7 @@ program main
 
     snn => create_snn()
 
+    ! encode
     call snn%snn_add_conv_layer(input_dims  = [28,28,1],&
                                 kernels     = 32, &
                                 kernel_dims = [3,3], &
@@ -173,45 +164,31 @@ program main
                                 activ       = 'relu', &
                                 padding     = 'valid')
 
-    ! should upsample back to starting size
-    call snn%snn_add_conv_layer(kernels     = 64, &
-                                kernel_dims = [3,3], &
-                                stride      = [1,1], &
-                                activ       = 'relu', &
-                                padding     = 'full')
-
+    ! decode
     call snn%snn_add_conv_layer(kernels     = 32, &
                                 kernel_dims = [3,3], &
                                 stride      = [1,1], &
                                 activ       = 'relu', &
                                 padding     = 'full')
 
-    ! call snn%snn_add_pool_layer(kernel_dims = [2,2], &
-    !                             stride      = [2,2], &
-    !                             pool        = 'max', &
-    !                             padding     = 'valid')
-
-    ! call snn%snn_add_dense_layer(out_nodes  = 512, &
-    !                              activation = 'relu')
-
-    ! call snn%snn_add_dense_layer(out_nodes  = 256, &
-    !                              activation = 'relu')
-
-    ! call snn%snn_add_dense_layer(out_nodes  = classes, &
-    !                              activation = 'softmax')
+    call snn%snn_add_conv_layer(kernels     = 1, &
+                                kernel_dims = [3,3], &
+                                stride      = [1,1], &
+                                activ       = 'relu', &
+                                padding     = 'full')
 
     call snn%snn_summary()
 
-    ! !---------------------------------------------------------------------------
-    ! ! train network
+    !---------------------------------------------------------------------------
+    ! train network
 
-    ! call snn%snn_fit(conv_input   = train_images, &
-    !                  train_labels = train_y_onehot, &
-    !                  batch_size   = 1, &
-    !                  epochs       = 2, &
-    !                  learn_rate   = 0.1, &
-    !                  loss         = 'cross_entropy', &
-    !                  verbose      = 2)
+    call snn%snn_fit(conv_input   = train_images, &
+                     train_images = train_images, &
+                     batch_size   = 5, &
+                     epochs       = 20, &
+                     learn_rate   = 0.01, &
+                     loss         = 'mse', &
+                     verbose      = 2)
 
     ! !---------------------------------------------------------------------------
     ! ! check network accuracy on test data
@@ -225,6 +202,6 @@ program main
 
     !---------------------------------------------------------------------------
 
-    ! deallocate(train_images, train_y_onehot, test_images, test_y_onehot)
+    deallocate(train_images, test_images)
     call deallocate_snn(snn)
 end program

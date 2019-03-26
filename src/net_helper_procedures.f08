@@ -399,7 +399,7 @@ end function
 !-------------------------------------------------------------------------------
 ! alters ::  rows of a and b are shuffled (correspondingly) in-place
 !-------------------------------------------------------------------------------
-subroutine pair_shuffle_rows_2D(a, b)
+subroutine pair_shuffle_2D_2D(a, b)
     real              :: a(:,:), b(:,:), randn
     real, allocatable :: row(:)
     integer           :: i, j
@@ -435,12 +435,12 @@ end subroutine
 ! shuffle each batch element in images and each row in arr in corresponding
 ! order (Fisher-Yates shuffle)
 !-------------------------------------------------------------------------------
-! a:         (real(:,:,:,:))
-! b:         (real(:,:,:,:))
+! images:    (real(:,:,:,:))
+! arr:       (real(:,:))
 !-------------------------------------------------------------------------------
 ! alters ::  images and arr rows shuffled (correspondingly) in-place
 !-------------------------------------------------------------------------------
-subroutine pair_shuffle_channels_4D(images, arr)
+subroutine pair_shuffle_4D_2D(images, arr)
     real              :: images(:,:,:,:), arr(:,:), randn
     real, allocatable :: channel(:,:,:), row(:)
     integer           :: i, j
@@ -466,6 +466,45 @@ subroutine pair_shuffle_channels_4D(images, arr)
             row = arr(i,:)
             arr(i,:) = arr(j,:)
             arr(j,:) = row
+        end if
+    end do
+end subroutine
+
+!-------------------------------------------------------------------------------
+! shuffle 3D images in each 4D batch in corresponding order
+! (Fisher-Yates shuffle)
+!-------------------------------------------------------------------------------
+! a:         (real(:,:,:,:))
+! b:         (real(:,:,:,:))
+!-------------------------------------------------------------------------------
+! alters ::  a and b images shuffled (correspondingly) in-place
+!-------------------------------------------------------------------------------
+subroutine pair_shuffle_4D_4D(a, b)
+    real              :: a(:,:,:,:), b(:,:,:,:), randn
+    real, allocatable :: channel(:,:,:)
+    integer           :: i, j
+
+    ! loop through channels from high to low indices
+    do i = size(a, dim=4), 2, -1
+        j = i + 1 ! arbitrary assignment to enter loop below
+
+        ! generate random j in range [1,i]
+        do while (j > i)
+            call random_number(randn) ! range [0, 1)
+            ! scale to [0, i) => floor to [0,i-1] => shift to [1,i]
+            j = 1 + floor(randn * i)
+        end do
+
+        ! swap if random index in different place
+        ! (if random j = i, don't need to swap i with i)
+        if (i /= j) then
+            channel = a(:,:,:,i)
+            a(:,:,:,i) = a(:,:,:,j)
+            a(:,:,:,j) = channel
+
+            channel = b(:,:,:,i)
+            b(:,:,:,i) = b(:,:,:,j)
+            b(:,:,:,j) = channel
         end if
     end do
 end subroutine
