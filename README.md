@@ -121,7 +121,7 @@ make xor
 ```
 
 ### test_autoenc.f08
-Right now, this just has a sanity check for deconvolutional layers (convolutional layers with "full" padding).  For now, creates an autoencoder-styled network:
+Right now, this just has a sanity check for deconvolutional layers (convolutional layers with "full" padding).  For now, it creates an autoencoder-styled network:
 ```
 ----------------------
  dimensions:               rows        cols    channels
