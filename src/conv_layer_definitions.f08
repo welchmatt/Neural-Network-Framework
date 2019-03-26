@@ -286,14 +286,14 @@ subroutine conv_back_prop(this)
     end if
 
     do i = 1, this%batch_size
-        if (this%pad == 'full') then
+        if (this%next_layer%pad == 'full') then
             call cross_correlate_3D_perms_sum_kernel( &
                                                 this%next_layer%d(:,:,:,i), &
                                                 this%next_layer%pad, &
                                                 this%next_layer%k, &
                                                 this%next_layer%stride, d_slice)
         else
-            ! derivative d(l+1) wrt a(l) OR pool(l) (if present)
+            ! derivative d(l+1) wrt a(l) OR pool(l) (if present) 
             call transpose_convolve_3D_perms_sum_kernel( &
                                                 this%next_layer%d(:,:,:,i), &
                                                 this%next_layer%pad, &
@@ -347,14 +347,14 @@ subroutine conv_update(this, input, learn_rate)
                                             this%d(:,:,:,1), this%stride, &
                                             'right', total_k_change)
     end if
-
+    
     ! total kernel change across batch
     do i = 2, this%batch_size
         if (this%pad == 'full') then
             call cross_correlate_3D_perms_group_base( &
                                                 this%d(:,:,:,i), this%pad, &
                                                 input(:,:,:,i), this%stride, &
-                                                'left', total_k_change)
+                                                'left', k_change)
         else
             call cross_correlate_3D_perms_group_kernel( &
                                                 input(:,:,:,i), this%pad, &
