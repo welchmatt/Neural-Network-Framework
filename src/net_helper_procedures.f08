@@ -902,45 +902,44 @@ subroutine convolve_3D(a, padding, kernel, stride, res)
 end subroutine
 
 !-------------------------------------------------------------------------------
-! calculate the cross-correlation between the 3D input and each 3D kernel (in
-! 4D array)
+! cross-correlate each 3D kernel (in 4D array) with a 3D input; return a 3D
+! array where each layer corresponds to a cross-correlation result by kernel;
 !
-! helper for conv_neural_net forward propagation;
-! opposite direction of cross_correlate_3D_back and transpose_convolve_3D_back
+! used in forward prop for convolutional layers
 !-------------------------------------------------------------------------------
-! input:    (real(:,:,:)) base array
+! a:        (real(:,:,:)) base array
 ! padding:  (characters) padding type
-! kernel:   (real(:,:,:,:)) channels of 3D kernels
+! kernels:  (real(:,:,:,:)) channels of 3D kernels
 ! stride:   (integer(2)) size of kernel moves in (y, x) directions
 ! res:      (real(:,:,:)) stores the output
 !-------------------------------------------------------------------------------
-! alters :: res becomes 3D cross-correlation forward prop result
+! alters :: res becomes 3D stack of cross-correlations (kernel count depth)
 !-------------------------------------------------------------------------------
-subroutine cross_correlate_3D_forw(input, padding, kernel, stride, res)
-    real, intent(in)         :: input(:,:,:), kernel(:,:,:,:)
+subroutine cross_correlate_3D_kernels(a, padding, kernels, stride, res)
+    real, intent(in)         :: a(:,:,:), kernels(:,:,:,:)
     character(*), intent(in) :: padding
     integer, intent(in)      :: stride(2)
     real, allocatable        :: res(:,:,:), res_channel(:,:)
-    integer                  :: kernels, k
+    integer                  :: k_count, k
 
-    kernels = size(kernel, dim=4)
+    k_count = size(kernels, dim=4)
 
     ! cross correlate each kernel with input
-    do k = 1, kernels
-        call cross_correlate_3D(input, padding, kernel(:,:,:,k), stride, &
+    do k = 1, k_count
+        call cross_correlate_3D(a, padding, kernels(:,:,:,k), stride, &
                                 res_channel)
 
         ! create new array if not correct size
         if (allocated(res)) then
             if (.not. all(shape(res(:,:,1)) == shape(res_channel)) .or. &
-                size(res, dim=3) /= kernels) then
+                size(res, dim=3) /= k_count) then
                 deallocate(res)
             end if
         end if
 
         if (.not. allocated(res)) then
             allocate(res(size(res_channel, dim=1), size(res_channel, dim=2), &
-                         kernels))
+                         k_count))
         end if
 
         res(:,:,k) = res_channel
@@ -948,52 +947,51 @@ subroutine cross_correlate_3D_forw(input, padding, kernel, stride, res)
 end subroutine
 
 !-------------------------------------------------------------------------------
-! calculate the transpose convolution between the 3D input and each 3D kernel
-! (in 4D array)
+! transpose-convolve each 3D kernel (in 4D array) with a 3D input; return a 3D
+! array where each layer corresponds to a transpose-convolution result by kernel
 !
-! helper for conv_neural_net forward propagation for UPSAMPLING;
-! opposite direction of cross_correlate_3D_back and transpose_convolve_3D_back
+! used in forward prop for deconvolutional layers
 !-------------------------------------------------------------------------------
-! input:    (real(:,:,:)) base array
+! a:        (real(:,:,:)) base array
 ! padding:  (characters) padding type
-! kernel:   (real(:,:,:,:)) channels of 3D kernels
+! kernels:  (real(:,:,:,:)) channels of 3D kernels
 ! stride:   (integer(2)) size of kernel moves in (y, x) directions
 ! res:      (real(:,:,:)) stores the output
 !-------------------------------------------------------------------------------
-! alters :: res becomes 3D cross-correlation forward prop result
+! alters :: res becomes 3D stack of transpose-convolutions (kernel count depth)
 !-------------------------------------------------------------------------------
-subroutine transpose_convolve_3D_forw(input, padding, kernel, stride, res)
-    real, intent(in)         :: input(:,:,:), kernel(:,:,:,:)
+subroutine transpose_convolve_3D_kernels(a, padding, kernels, stride, res)
+    real, intent(in)         :: a(:,:,:), kernels(:,:,:,:)
     character(*), intent(in) :: padding
     integer, intent(in)      :: stride(2)
     real, allocatable        :: res(:,:,:), res_channel(:,:)
-    integer                  :: kernels, k
+    integer                  :: k_count, k
 
     if (padding /= 'full') then
-        print *, '----------------------------------------------------'
-        print *, '(net_helper_functions :: transpose_convolve_3D_forw)'
+        print *, '-------------------------------------------------------'
+        print *, '(net_helper_functions :: transpose_convolve_3D_kernels)'
         print *, 'must use full padding.'
-        print *, '----------------------------------------------------'
+        print *, '-------------------------------------------------------'
         stop -1
     end if
 
-    kernels = size(kernel, dim=4)
+    k_count = size(kernels, dim=4)
 
     ! convolve each kernel with input
-    do k = 1, kernels
-        call convolve_3D(input, padding, kernel(:,:,:,k), stride, res_channel)
+    do k = 1, k_count
+        call convolve_3D(a, padding, kernels(:,:,:,k), stride, res_channel)
 
         ! create new array if not correct size
         if (allocated(res)) then
             if (.not. all(shape(res(:,:,1)) == shape(res_channel)) .or. &
-                size(res, dim=3) /= kernels) then
+                size(res, dim=3) /= k_count) then
                 deallocate(res)
             end if
         end if
 
         if (.not. allocated(res)) then
             allocate(res(size(res_channel, dim=1), size(res_channel, dim=2), &
-                         kernels))
+                         k_count))
         end if
 
         res(:,:,k) = res_channel
@@ -1001,40 +999,56 @@ subroutine transpose_convolve_3D_forw(input, padding, kernel, stride, res)
 end subroutine
 
 !-------------------------------------------------------------------------------
-! used with result (delta) of cross_correlate_3D_forw (this "reverses" that
-! function wrt kernels); calculate the cross-correlation between each delta and
-! each corresponding input channel, and sum up the results corresponding to each
-! kernel channel that was used in cross_correlate_3D_forw
+! cross-correlate all permutations between channels in base array and kernel
+! array; result is 4D array, where first 2D are cross-correlation results,
+! 3D corresponds to base array channels, 4D corresponds to kernel channels;
+! we group the cross-correlation results by kernel channel;
+! user can choose to stride either (but not both) arrays with stride;
 !
-! helper for conv_neural_net backpropagation, to calcualte cost wrt kernels;
-! opposite direction of cross_correlate_3D_forw
+! used in backprop wrt kernels for convolutional layers
 !-------------------------------------------------------------------------------
-! input:    (real(:,:,:)) base array
+! a:        (real(:,:,:)) base array
 ! padding:  (characters) padding type
-! delta:    (real(:,:,:)) channels of deltas (cross_correlate_3D_forw output)
+! kernel:   (real(:,:,:)) kernel array
 ! stride:   (integer(2)) size of kernel moves in (y, x) directions
 ! res:      (real(:,:,:,:)) stores the output
+!
+! exp_side: (optional - characters) stride expand 'left' (a) or 'right' (kernel)
 !-------------------------------------------------------------------------------
-! alters :: res becomes 3D cross-correlation back prop result
+! alters :: res becomes cross-correlation permutation result, grouped by kernel
 !-------------------------------------------------------------------------------
-subroutine cross_correlate_3D_back(input, padding, delta, stride, res)
-    real, intent(in)         :: input(:,:,:), delta(:,:,:)
-    character(*), intent(in) :: padding
-    integer, intent(in)      :: stride(2)
-    real, allocatable        :: res(:,:,:,:), res_channel(:,:), exp_delta(:,:,:)
-    integer                  :: d_channels, i_channels, d, i
+subroutine cross_correlate_3D_perms_group_kernel(a, padding, kernel, stride, &
+                                                 exp_side, res)
+    real, intent(in)                   :: a(:,:,:), kernel(:,:,:)
+    character(*), intent(in)           :: padding
+    integer, intent(in)                :: stride(2)
+    character(*), intent(in), optional :: exp_side
+    real, allocatable                  :: res(:,:,:,:), res_channel(:,:), &
+                                          exp_a(:,:,:), exp_k(:,:,:)
+    integer                            :: a_channels, k_channels, a_i, k_i
 
-    d_channels = size(delta, dim=3)
-    i_channels = size(input, dim=3) ! input channels match kernel channels
+    a_channels = size(a, dim=3)
+    k_channels = size(kernel, dim=3)
 
-    ! account for stride
-    call expand_with_stride_3D(delta, stride, exp_delta)
+    ! handle any stride expansions
+    if (present(exp_side)) then
+        if (exp_side == 'left') then
+            call expand_with_stride_3D(a, stride, exp_a) ! a = left
+            exp_k = kernel                               ! default
+        else if (exp_side == 'right') then
+            call expand_with_stride_3D(kernel, stride, exp_k) ! kernel = right
+            exp_a = a                                         ! default
+        end if
+    else
+        ! no expanding
+        exp_a = a
+        exp_k = kernel
+    end if
 
-    ! cross-correlate each delta channel with each corresponding
-    ! input channel, then sum up the results by kernel channel
-    do d = 1, d_channels
-        do i = 1, i_channels
-            call cross_correlate_2D(input(:,:,i), padding, exp_delta(:,:,d), &
+    ! cross-correlate each corresponding channel pair, grouped by b
+    do k_i = 1, k_channels
+        do a_i = 1, a_channels
+            call cross_correlate_2D(exp_a(:,:,a_i), padding, exp_k(:,:,k_i), &
                                     [1,1], res_channel)
 
             ! create new array if not correct size
@@ -1042,7 +1056,7 @@ subroutine cross_correlate_3D_back(input, padding, delta, stride, res)
                 ! deallocate if wrong size
                 if (.not. all(shape(res) == [size(res_channel, dim=1), &
                                              size(res_channel, dim=2), &
-                                             i_channels, d_channels])) then
+                                             a_channels, k_channels])) then
                     deallocate(res)
                 end if
             end if
@@ -1050,68 +1064,154 @@ subroutine cross_correlate_3D_back(input, padding, delta, stride, res)
             if (.not. allocated(res)) then
                 allocate(res(size(res_channel, dim=1), &
                              size(res_channel, dim=2), &
-                             i_channels, d_channels))
+                             a_channels, k_channels))
             end if
 
-            res(:,:,i,d) = res_channel
+            ! in each group of k_i, we store cross-correlate pairs of all a_i
+            res(:,:,a_i,k_i) = res_channel
         end do
     end do
 end subroutine
 
 !-------------------------------------------------------------------------------
-! used with result (delta) of cross_correlate_3D_forw (this "reverses" that
-! function wrt input); calculate the transpose convolution between each kernel
-! and each corresponding delta channel, and sum up the results corresponding to
-! each input channel that was used in cross_correlate_3D_forw
+! cross-correlate all permutations between channels in base array and kernel
+! array; result is 4D array, where first 2D are cross-correlation results,
+! 3D corresponds to kernel channels, 4D corresponds to base array channels;
+! we group the cross-correlation results by base array channel;
+! user can choose to stride either (but not both) arrays with stride;
 !
-! helper for conv_neural_net backpropagation, to calcualte cost wrt previous
-! layer activations;
-! opposite direction of cross_correlate_3D_forw
+! used in backprop wrt kernels for deconvolutional layers
 !-------------------------------------------------------------------------------
-! delta:    (real(:,:,:)) channels of deltas (cross_correlate_3D_forw output)
+! a:        (real(:,:,:)) base array
 ! padding:  (characters) padding type
-! kernel:   (real(:,:,:,:)) channels of 3D kernels
+! kernel:   (real(:,:,:)) kernel array
+! stride:   (integer(2)) size of kernel moves in (y, x) directions
+! res:      (real(:,:,:,:)) stores the output
+!
+! exp_side: (optional - characters) stride expand 'left' (a) or 'right' (kernel)
+!-------------------------------------------------------------------------------
+! alters :: res becomes cross-correlation permutation result, grouped by base
+!-------------------------------------------------------------------------------
+subroutine cross_correlate_3D_perms_group_base(a, padding, kernel, stride, &
+                                               exp_side, res)
+    real, intent(in)                   :: a(:,:,:), kernel(:,:,:)
+    character(*), intent(in)           :: padding
+    integer, intent(in)                :: stride(2)
+    character(*), intent(in), optional :: exp_side
+    real, allocatable                  :: res(:,:,:,:), res_channel(:,:), &
+                                          exp_a(:,:,:), exp_k(:,:,:)
+    integer                            :: a_channels, k_channels, a_i, k_i
+
+    if (padding /= 'full') then
+        print *, '-------------------------------------------------------'
+        print *, '(net_helper_functions :: transpose_convolve_3D_kernels)'
+        print *, 'must use full padding.'
+        print *, '-------------------------------------------------------'
+        stop -1
+    end if
+
+    a_channels = size(a, dim=3)
+    k_channels = size(kernel, dim=3)
+
+    ! handle any stride expansions
+    if (present(exp_side)) then
+        if (exp_side == 'left') then
+            call expand_with_stride_3D(a, stride, exp_a) ! a = left
+            exp_k = kernel                               ! default
+        else if (exp_side == 'right') then
+            call expand_with_stride_3D(kernel, stride, exp_k) ! kernel = right
+            exp_a = a                                         ! default
+        end if
+    else
+        ! no expanding
+        exp_a = a
+        exp_k = kernel
+    end if
+
+    ! cross-correlate each corresponding channel pair, grouped by b
+    do a_i = 1, a_channels
+        do k_i = 1, k_channels
+            ! assumed for deconvolution; use valid rather than full padding
+            call cross_correlate_2D(exp_a(:,:,a_i), 'valid', exp_k(:,:,k_i), &
+                                    [1,1], res_channel)
+
+            ! create new array if not correct size
+            if (allocated(res)) then
+                ! deallocate if wrong size
+                if (.not. all(shape(res) == [size(res_channel, dim=1), &
+                                             size(res_channel, dim=2), &
+                                             k_channels, a_channels])) then
+                    deallocate(res)
+                end if
+            end if
+
+            if (.not. allocated(res)) then
+                allocate(res(size(res_channel, dim=1), &
+                             size(res_channel, dim=2), &
+                             k_channels, a_channels))
+            end if
+
+            ! in each group of a_i, we store cross-correlate pairs of all k_i
+            res(:,:,k_i,a_i) = res_channel
+        end do
+    end do
+end subroutine
+
+!-------------------------------------------------------------------------------
+! transpose-convolve all permutations between channels in base array and kernels
+! in kernel array; result is 3D array, where first 2D are transpose-convolution
+! results, and 3D sums up the transpose-convolution by kernel channel (3D of
+! kernels, where 3D for channels in each kernel, and 4D is different kernels);
+!
+! used in backprop wrt inputs for convolutional layers, so we must handle
+! undoing padding to match input dimensions in this case
+!-------------------------------------------------------------------------------
+! a:        (real(:,:,:)) base array
+! padding:  (characters) padding type
+! kernels:  (real(:,:,:,:)) array of 3D kernels
 ! stride:   (integer(2)) size of kernel moves in (y, x) directions
 ! res:      (real(:,:,:)) stores the output
 !-------------------------------------------------------------------------------
-! alters :: res becomes 3D transpose convolution result
+! alters :: res becomes transpose-convolution permutation result, sum by kernel
 !-------------------------------------------------------------------------------
-subroutine transpose_convolve_3D_back(delta, padding, kernel, stride, res)
-    real, intent(in)         :: delta(:,:,:), kernel(:,:,:,:)
+subroutine transpose_convolve_3D_perms_sum_kernel(a, padding, kernels, &
+                                                  stride, res)
+    real, intent(in)         :: a(:,:,:), kernels(:,:,:,:)
     character(*), intent(in) :: padding
     integer, intent(in)      :: stride(2)
-    real, allocatable        :: res(:,:,:), res_channel(:,:), &
-                                exp_delta(:,:,:), unpad_channel(:,:)
-    integer                  :: d_rows, d_cols, d_channels, k_channels, d, k, &
-                                res_row_pad, res_col_pad, top_pad, left_pad
+    real, allocatable        :: res(:,:,:), res_channel(:,:), exp_a(:,:,:), &
+                                unpad_channel(:,:)
+    integer                  :: a_rows, a_cols, a_channels, k_channels, &
+                                res_row_pad, res_col_pad, top_pad, left_pad, &
+                                a_i, k_i
 
-    d_rows     = size(delta, dim=1)
-    d_cols     = size(delta, dim=2)
-    d_channels = size(delta, dim=3)
-    k_channels = size(kernel, dim=3)
+    a_rows     = size(a, dim=1)
+    a_cols     = size(a, dim=2)
+    a_channels = size(a, dim=3)
+    k_channels = size(kernels, dim=3)
 
     ! account for stride
-    call expand_with_stride_3D(delta, stride, exp_delta)
+    call expand_with_stride_3D(a, stride, exp_a)
 
     ! convolve each delta channel with corresponding kernel
     ! channel, then sum up the results by input channel
-    do k = 1, k_channels
-        do d = 1, d_channels
-            call convolve_2D(exp_delta(:,:,d), 'full', kernel(:,:,k,d), [1,1], &
-                             res_channel)
+    do k_i = 1, k_channels
+        do a_i = 1, a_channels
+            call convolve_2D(exp_a(:,:,a_i), 'full', kernels(:,:,k_i,a_i), &
+                             [1,1], res_channel)
 
             if (padding == 'same') then
                 ! res layer results currently includes padding; must remove it
-                res_row_pad = size(res_channel, dim=1) - d_rows
-                res_col_pad = size(res_channel, dim=2) - d_cols
+                res_row_pad = size(res_channel, dim=1) - a_rows
+                res_col_pad = size(res_channel, dim=2) - a_cols
 
                 ! if odd number pad: top/left get rounded down amount
                 top_pad = res_row_pad / 2
                 left_pad = res_col_pad / 2
 
                 ! select array (without padding) from res_channel
-                unpad_channel = res_channel(top_pad+1:top_pad+d_rows, &
-                                            left_pad+1:left_pad+d_cols)
+                unpad_channel = res_channel(top_pad+1:top_pad+a_rows, &
+                                            left_pad+1:left_pad+a_cols)
             else if (padding == 'valid') then
                 unpad_channel = res_channel ! no padding to remove
             end if
@@ -1134,7 +1234,80 @@ subroutine transpose_convolve_3D_back(delta, padding, kernel, stride, res)
                 res = 0
             end if
 
-            res(:,:,k) = res(:,:,k) + unpad_channel
+            ! sum up results by kernel channel
+            res(:,:,k_i) = res(:,:,k_i) + unpad_channel
+        end do
+    end do
+end subroutine
+
+!-------------------------------------------------------------------------------
+! cross-correlate all permutations between channels in base array and kernels
+! in kernel array; result is 3D array, where first 2D are cross-correlation
+! results, and 3D sums up the cross-correlation by kernel channel (3D of
+! kernels, where 3D for channels in each kernel, and 4D is different kernels);
+!
+! used in backprop wrt inputs for deconvolutional layers, so we do not need to
+! undo any padding, because deconvolution is assumed have no extra padding
+!-------------------------------------------------------------------------------
+! a:        (real(:,:,:)) base array
+! padding:  (characters) padding type
+! kernels:  (real(:,:,:,:)) array of 3D kernels
+! stride:   (integer(2)) size of kernel moves in (y, x) directions
+! res:      (real(:,:,:)) stores the output
+!-------------------------------------------------------------------------------
+! alters :: res becomes cross-correlation permutation result, sum by kernel
+!-------------------------------------------------------------------------------
+subroutine cross_correlate_3D_perms_sum_kernel(a, padding, kernels, stride, res)
+    real, intent(in)         :: a(:,:,:), kernels(:,:,:,:)
+    character(*), intent(in) :: padding
+    integer, intent(in)      :: stride(2)
+    real, allocatable        :: res(:,:,:), res_channel(:,:), exp_a(:,:,:)
+    integer                  :: a_rows, a_cols, a_channels, k_channels, a_i, k_i
+
+    if (padding /= 'full') then
+        print *, '-------------------------------------------------------'
+        print *, '(net_helper_functions :: transpose_convolve_3D_kernels)'
+        print *, 'must use full padding.'
+        print *, '-------------------------------------------------------'
+        stop -1
+    end if
+
+    a_rows     = size(a, dim=1)
+    a_cols     = size(a, dim=2)
+    a_channels = size(a, dim=3)
+    k_channels = size(kernels, dim=3)
+
+    ! account for stride
+    call expand_with_stride_3D(a, stride, exp_a)
+
+    ! convolve each delta channel with corresponding kernel
+    ! channel, then sum up the results by input channel
+    do k_i = 1, k_channels
+        do a_i = 1, a_channels
+            ! assumed for deconvolution; use valid rather than full padding
+            call cross_correlate_2D(exp_a(:,:,a_i), 'valid', &
+                                    kernels(:,:,k_i,a_i), [1,1], res_channel)
+
+            ! create new array if not correct size
+            if (allocated(res)) then
+                ! deallocate if wrong size
+                if (.not. all(shape(res(:,:,1)) == shape(res_channel)) .or. &
+                    size(res, dim=3) /= k_channels) then
+                    deallocate(res)
+                else
+                    res = 0 ! allocated, and correct size
+                end if
+            end if
+
+            if (.not. allocated(res)) then
+                allocate(res(size(res_channel, dim=1), &
+                             size(res_channel, dim=2), &
+                             k_channels))
+                res = 0
+            end if
+
+            ! sum up results by kernel channel
+            res(:,:,k_i) = res(:,:,k_i) + res_channel
         end do
     end do
 end subroutine

@@ -33,13 +33,13 @@ program main
     implicit none
 
     class(SeqNN), pointer :: snn
-    real, allocatable     :: image(:,:,:), train_images(:,:,:,:), &
-                             test_images(:,:,:,:), train(:,:), test(:,:), &
-                             train_x(:,:), train_y(:), test_x(:,:), test_y(:), &
-                             train_y_onehot(:,:), test_y_onehot(:,:)
-    integer               :: train_rows, test_rows, variables, classes, &
-                             pixels, row, i
-    real                  :: accuracy
+    ! real, allocatable     :: image(:,:,:), train_images(:,:,:,:), &
+    !                          test_images(:,:,:,:), train(:,:), test(:,:), &
+    !                          train_x(:,:), train_y(:), test_x(:,:), test_y(:), &
+    !                          train_y_onehot(:,:), test_y_onehot(:,:)
+    ! integer               :: train_rows, test_rows, variables, classes, &
+    !                          pixels, row, i
+    ! real                  :: accuracy
 
     ! train_rows = 5
     ! test_rows = 5

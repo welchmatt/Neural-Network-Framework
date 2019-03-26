@@ -53,7 +53,7 @@ type :: ConvLayer
     class(ConvLayer), pointer :: prev_layer, next_layer
     class(PoolLayer), pointer :: next_pool
     character(len=20)         :: pad, activ
-    ! dimension order: (rows, columns, channels, batches)
+    ! dimension order: (rows, columns, channels, batches or kernel items)
     real, allocatable         :: k(:,:,:,:), & ! kernels
                                  b(:,:,:),   & ! biases
                                  z(:,:,:,:), & ! weighted inputs
@@ -71,7 +71,11 @@ contains
 !===============================================================================
 
 !-------------------------------------------------------------------------------
-! constructs a new ConvLayer
+! constructs a new ConvLayer;
+!
+! 'same' padding maintains dimensions;
+! 'valid' padding reduces dimensions;
+! 'full' padding applies opposite operations to 'valid'; upscaling 
 !-------------------------------------------------------------------------------
 ! input_dims:  (integer(3)) (height, width, channels) of one input
 ! kernels:     (integer) kernels in this layer
@@ -89,6 +93,16 @@ function create_conv_layer(input_dims, kernels, kernel_dims, stride, &
                                  stride(2)
     character(*), intent(in)  :: activ, padding
     integer                   :: pad_rows, final_rows, pad_cols, final_cols
+
+    if (.not. (padding == 'valid' .or. &
+               padding == 'same' .or. &
+               padding == 'full')) then
+        print *, '---------------------------------------------'
+        print *, '(conv_layer_definitions :: create_conv_layer)'
+        print *, 'supported: valid, same, full'
+        print *, '---------------------------------------------'
+        stop -1
+    end if
 
     allocate(create_conv_layer)
     create_conv_layer%in_dims    =  input_dims
@@ -216,9 +230,15 @@ subroutine conv_forw_prop(this, input)
     integer           :: i
 
     do i = 1, this%batch_size
-        ! z(l) = cross_correlation(a(l-1), k(l)) + b(l)
-        call cross_correlate_3D_forw(input(:,:,:,i), this%pad, this%k, &
-                                     this%stride, z_slice)
+        if (this%pad == 'full') then
+            ! z(l) = transpose_convolution(a(l-1), k(l)) + b(l)
+            call transpose_convolve_3D_kernels(input(:,:,:,i), this%pad, &
+                                               this%k, this%stride, z_slice)
+        else
+            ! z(l) = cross_correlation(a(l-1), k(l)) + b(l)
+            call cross_correlate_3D_kernels(input(:,:,:,i), this%pad, this%k, &
+                                            this%stride, z_slice)
+        end if
 
         this%z(:,:,:,i) = z_slice + this%b
     end do
@@ -266,11 +286,20 @@ subroutine conv_back_prop(this)
     end if
 
     do i = 1, this%batch_size
-        ! derivative d(l+1) wrt a(l) OR pool(l) (if present)
-        call transpose_convolve_3D_back(this%next_layer%d(:,:,:,i), &
-                                        this%next_layer%pad, &
-                                        this%next_layer%k, &
-                                        this%next_layer%stride, d_slice)
+        if (this%pad == 'full') then
+            call cross_correlate_3D_perms_sum_kernel( &
+                                                this%next_layer%d(:,:,:,i), &
+                                                this%next_layer%pad, &
+                                                this%next_layer%k, &
+                                                this%next_layer%stride, d_slice)
+        else
+            ! derivative d(l+1) wrt a(l) OR pool(l) (if present)
+            call transpose_convolve_3D_perms_sum_kernel( &
+                                                this%next_layer%d(:,:,:,i), &
+                                                this%next_layer%pad, &
+                                                this%next_layer%k, &
+                                                this%next_layer%stride, d_slice)
+        end if
 
         if (associated(this%next_pool)) then
             ! must undo the pooling to find derivative wrt a's kept by pool
@@ -307,14 +336,31 @@ subroutine conv_update(this, input, learn_rate)
     integer           :: i
 
     ! initial call to start counter array (total_k_change)
-    call cross_correlate_3D_back(input(:,:,:,1), this%pad, this%d(:,:,:,1), &
-                                 this%stride, total_k_change)
+    if (this%pad == 'full') then
+        call cross_correlate_3D_perms_group_base( &
+                                            this%d(:,:,:,1), this%pad, &
+                                            input(:,:,:,1), this%stride, &
+                                            'left', total_k_change)
+    else
+        call cross_correlate_3D_perms_group_kernel( &
+                                            input(:,:,:,1), this%pad, &
+                                            this%d(:,:,:,1), this%stride, &
+                                            'right', total_k_change)
+    end if
 
     ! total kernel change across batch
     do i = 2, this%batch_size
-        call cross_correlate_3D_back(input(:,:,:,i), this%pad, &
-                                     this%d(:,:,:,i), this%stride, &
-                                     k_change)
+        if (this%pad == 'full') then
+            call cross_correlate_3D_perms_group_base( &
+                                                this%d(:,:,:,i), this%pad, &
+                                                input(:,:,:,i), this%stride, &
+                                                'left', total_k_change)
+        else
+            call cross_correlate_3D_perms_group_kernel( &
+                                                input(:,:,:,i), this%pad, &
+                                                this%d(:,:,:,i), this%stride, &
+                                                'right', k_change)
+        end if
 
         total_k_change = total_k_change + k_change
     end do
