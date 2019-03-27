@@ -1,7 +1,8 @@
 !-------------------------------------------------------------------------------
 ! TODO:
-!       * this test is currently just a sanity check for deconvolution.
-!         implement full test
+!       * this test is currently just a sanity check for deconvolution, where
+!         we see the loss decrease over time on a simple test.
+!         implement full autoencoder test
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
@@ -39,7 +40,7 @@ program main
                              train_x(:,:), test_x(:,:)
     integer               :: train_rows, test_rows, variables, classes, &
                              pixels, row, i
-    ! real                  :: accuracy
+    real                  :: loss
 
     train_rows = 5
     test_rows = 5
@@ -182,23 +183,24 @@ program main
     !---------------------------------------------------------------------------
     ! train network
 
-    call snn%snn_fit(conv_input   = train_images, &
-                     train_images = train_images, &
-                     batch_size   = 5, &
-                     epochs       = 20, &
-                     learn_rate   = 0.01, &
-                     loss         = 'mse', &
-                     verbose      = 2)
+    call snn%snn_fit(conv_input    = train_images, &
+                     target_images = train_images, &
+                     batch_size    = 5, &
+                     epochs        = 20, &
+                     learn_rate    = 0.01, &
+                     loss          = 'mse', &
+                     verbose       = 2)
 
-    ! !---------------------------------------------------------------------------
-    ! ! check network accuracy on test data
+    !---------------------------------------------------------------------------
+    ! check network loss on test data
+    loss = snn%snn_regression_loss(conv_input    = train_images,  &
+                                   target_images = train_images, &
+                                   loss          = 'mse', &
+                                   verbose       = 2)
 
-    ! accuracy = snn%snn_one_hot_accuracy(conv_input   = test_images, &
-    !                                     input_labels = test_y_onehot, &
-    !                                     verbose      = 2)
-    ! print *, '----------------------'
-    ! print *, 'testing accuracy:', accuracy
-    ! print *, '----------------------'
+    print *, '----------------------'
+    print *, 'testing loss:', loss
+    print *, '----------------------'
 
     !---------------------------------------------------------------------------
 

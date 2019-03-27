@@ -348,7 +348,7 @@ subroutine conv_update(this, input, learn_rate)
                                             'right', total_k_change)
     end if
     
-    ! total kernel change across batch
+    ! sum kernel changes across batch
     do i = 2, this%batch_size
         if (this%pad == 'full') then
             call cross_correlate_3D_perms_group_base( &
