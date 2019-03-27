@@ -57,13 +57,13 @@ call snn%snn_summary()
 
 Then fit the model to our training data:
 ```fortran
-call snn%snn_fit(conv_input   = train_images, &
-                 train_labels = train_y_onehot, &
-                 batch_size   = 128, &
-                 epochs       = 2, &
-                 learn_rate   = 0.1, &
-                 loss         = 'cross_entropy', &
-                 verbose      = 2)
+call snn%snn_fit(conv_input    = train_images, &
+                 target_labels = train_y_onehot, &
+                 batch_size    = 128, &
+                 epochs        = 2, &
+                 learn_rate    = 0.1, &
+                 loss          = 'cross_entropy', &
+                 verbose       = 2)
 ```
 
 Finally, we can calculate the model's accuracy on our testing data:
