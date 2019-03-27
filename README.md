@@ -134,7 +134,7 @@ Right now, this just has a sanity check for deconvolutional layers (convolutiona
  -----------
  ----------------------
 ```
-Then trains the model on a batch of 5 images over multiple epochs; the loss successfully decreases over time.
+Then trains the model on a batch of 5 images over multiple epochs, and the loss successfully decreases over time.
 
 Compile and run with:
 ```
