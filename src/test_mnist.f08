@@ -187,20 +187,20 @@ program main
     !---------------------------------------------------------------------------
     ! train network
 
-    call snn%snn_fit(conv_input   = train_images, &
-                     train_labels = train_y_onehot, &
-                     batch_size   = 128, &
-                     epochs       = 2, &
-                     learn_rate   = 0.1, &
-                     loss         = 'cross_entropy', &
-                     verbose      = 2)
+    call snn%snn_fit(conv_input    = train_images, &
+                     target_labels = train_y_onehot, &
+                     batch_size    = 128, &
+                     epochs        = 2, &
+                     learn_rate    = 0.1, &
+                     loss          = 'cross_entropy', &
+                     verbose       = 2)
 
     !---------------------------------------------------------------------------
     ! check network accuracy on test data
 
-    accuracy = snn%snn_one_hot_accuracy(conv_input   = test_images, &
-                                        input_labels = test_y_onehot, &
-                                        verbose      = 2)
+    accuracy = snn%snn_one_hot_accuracy(conv_input    = test_images, &
+                                        target_labels = test_y_onehot, &
+                                        verbose       = 2)
     print *, '----------------------'
     print *, 'testing accuracy:', accuracy
     print *, '----------------------'

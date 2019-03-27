@@ -41,12 +41,13 @@ program main
     !---------------------------------------------------------------------------
     ! train network
 
-    call snn%snn_fit(dense_input  = X, &
-                     train_labels = Y, &
-                     batch_size   = 4, &
-                     epochs       = 10000, &
-                     learn_rate   = 0.4, &
-                     loss         = 'mse')
+    call snn%snn_fit(dense_input   = X, &
+                     target_labels = Y, &
+                     batch_size    = 4, &
+                     epochs        = 10000, &
+                     learn_rate    = 0.4, &
+                     loss          = 'mse', &
+                     verbose       = 2)
 
     !---------------------------------------------------------------------------
     ! check prediction for each case
@@ -65,9 +66,9 @@ program main
     !---------------------------------------------------------------------------
     ! check network loss on all predictions
 
-    loss = snn%snn_regression_loss(dense_input  = X, &
-                                   input_labels = Y, &
-                                   loss         = 'mse')
+    loss = snn%snn_regression_loss(dense_input   = X, &
+                                   target_labels = Y, &
+                                   loss          = 'mse')
 
     print *, '----------------------'
     print *, 'loss:'

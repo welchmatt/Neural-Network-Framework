@@ -278,23 +278,23 @@ end subroutine
 !===============================================================================
 
 !-------------------------------------------------------------------------------
-! mean square error between predictions and true labels
+! mean square error between predictions and true targets
 !-------------------------------------------------------------------------------
 ! preds:      (real(:,:)) predictions
-! labels:     (real(:,:)) targets we want to predict
+! targets:    (real(:,:)) targets we want to predict
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function mse_func_2D(preds, labels)
-    real, intent(in) :: preds(:,:), labels(:,:)
-    mse_func_2D = sum((preds - labels) ** 2) / (2 * size(preds, dim=1))
+real function mse_func_2D(preds, targets)
+    real, intent(in) :: preds(:,:), targets(:,:)
+    mse_func_2D = sum((preds - targets) ** 2) / (2 * size(preds, dim=1))
 end function
 
 !-------------------------------------------------------------------------------
-! mean square error between predictions and true labels
+! mean square error between predictions and true targets
 !-------------------------------------------------------------------------------
 ! preds:      (real(:,:,:,:)) predictions
-! labels:     (real(:,:,:,:)) targets we want to predict
+! targets:    (real(:,:,:,:)) targets we want to predict
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
@@ -304,32 +304,32 @@ real function mse_func_4D(preds, targets)
 end function
 
 !-------------------------------------------------------------------------------
-! categorical cross entropy between predictions and true labels
+! categorical cross entropy between predictions and true targets
 !-------------------------------------------------------------------------------
 ! preds:      (real(:,:)) predictions
-! labels:     (real(:,:)) targets we want to predict
+! targets:    (real(:,:)) targets we want to predict
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function cross_entropy_func_2D(preds, labels)
-    real, intent(in) :: preds(:,:), labels(:,:)
-    cross_entropy_func_2D = -sum(labels * log(preds)) / size(preds, dim=1)
+real function cross_entropy_func_2D(preds, targets)
+    real, intent(in) :: preds(:,:), targets(:,:)
+    cross_entropy_func_2D = -sum(targets * log(preds)) / size(preds, dim=1)
 end function
 
 !-------------------------------------------------------------------------------
 ! calculate the accuracy between predictions and one-hot label rows
 !-------------------------------------------------------------------------------
 ! preds:      (real(:,:)) predictions
-! labels:     (real(:,:)) ONE-HOT ENCODED targets we want to predict
+! targets:    (real(:,:)) ONE-HOT ENCODED targets we want to predict
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function one_hot_accuracy_2D(preds, labels)
-    real, intent(in) :: preds(:,:), labels(:,:)
+real function one_hot_accuracy_2D(preds, targets)
+    real, intent(in) :: preds(:,:), targets(:,:)
     real             :: correct
 
-    ! correct where strongest predictions match one-hot labels
-    correct = count(maxloc(preds, dim=2) == maxloc(labels, dim=2))
+    ! correct where strongest predictions match one-hot targets
+    correct = count(maxloc(preds, dim=2) == maxloc(targets, dim=2))
     one_hot_accuracy_2D = correct / size(preds, dim=1)
 end function
 
@@ -337,20 +337,20 @@ end function
 ! wrapper for loss functions
 !-------------------------------------------------------------------------------
 ! preds:      (real(:,:)) predictions
-! labels:     (real(:,:)) targets we want to predict
+! targets:    (real(:,:)) targets we want to predict
 ! loss:       (characters) loss function
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function lossfunc_2D(preds, labels, loss)
-    real, intent(in)         :: preds(:,:), labels(:,:)
+real function lossfunc_2D(preds, targets, loss)
+    real, intent(in)         :: preds(:,:), targets(:,:)
     character(*), intent(in) :: loss
 
     select case(loss)
         case ('mse')
-            lossfunc_2D = mse_func_2D(preds, labels)
+            lossfunc_2D = mse_func_2D(preds, targets)
         case ('cross_entropy')
-            lossfunc_2D = cross_entropy_func_2D(preds, labels)
+            lossfunc_2D = cross_entropy_func_2D(preds, targets)
         case default
             print *, '----------------------------------'
             print *, '(net_helper_functions :: lossfunc)'
@@ -432,21 +432,21 @@ subroutine pair_shuffle_2D_2D(a, b)
 end subroutine
 
 !-------------------------------------------------------------------------------
-! shuffle each batch element in images and each row in arr in corresponding
-! order (Fisher-Yates shuffle)
+! shuffle 3D images in each 4D batch in corresponding order with rows of 2D
+! batch (Fisher-Yates shuffle)
 !-------------------------------------------------------------------------------
-! images:    (real(:,:,:,:))
-! arr:       (real(:,:))
+! a:        (real(:,:,:,:))
+! b:        (real(:,:))
 !-------------------------------------------------------------------------------
-! alters ::  images and arr rows shuffled (correspondingly) in-place
+! alters :: a and b shuffled (correspondingly) in-place
 !-------------------------------------------------------------------------------
-subroutine pair_shuffle_4D_2D(images, arr)
-    real              :: images(:,:,:,:), arr(:,:), randn
+subroutine pair_shuffle_4D_2D(a, b)
+    real              :: a(:,:,:,:), b(:,:), randn
     real, allocatable :: channel(:,:,:), row(:)
     integer           :: i, j
 
     ! loop through channels from high to low indices
-    do i = size(images, dim=4), 2, -1
+    do i = size(a, dim=4), 2, -1
         j = i + 1 ! arbitrary assignment to enter loop below
 
         ! generate random j in range [1,i]
@@ -459,13 +459,13 @@ subroutine pair_shuffle_4D_2D(images, arr)
         ! swap if random index in different place
         ! (if random j = i, don't need to swap i with i)
         if (i /= j) then
-            channel = images(:,:,:,i)
-            images(:,:,:,i) = images(:,:,:,j)
-            images(:,:,:,j) = channel
+            channel = a(:,:,:,i)
+            a(:,:,:,i) = a(:,:,:,j)
+            a(:,:,:,j) = channel
 
-            row = arr(i,:)
-            arr(i,:) = arr(j,:)
-            arr(j,:) = row
+            row = b(i,:)
+            b(i,:) = b(j,:)
+            b(j,:) = row
         end if
     end do
 end subroutine
