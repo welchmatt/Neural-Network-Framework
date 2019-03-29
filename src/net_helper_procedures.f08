@@ -1,6 +1,6 @@
 !-------------------------------------------------------------------------------
-! helper functions for matrices; utilized by dense_neural_net, conv_neural_net,
-! and sequential_neural_net, but can be used for matrices in general
+! helper functions for matrices; utilized by neural network structures, but can
+! be used for matrices in general
 !-------------------------------------------------------------------------------
 ! Matt Welch
 !-------------------------------------------------------------------------------
