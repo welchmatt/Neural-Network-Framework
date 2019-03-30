@@ -121,7 +121,7 @@ make xor
 ```
 
 ### test_autoenc.f08
-Right now, this just has a sanity check for deconvolutional layers (convolutional layers with "full" padding).  For now, it creates an autoencoder-styled network:
+Currently, this is just a sanity check for deconvolutional layers (convolutional layers with "full" padding).  For now, it creates an autoencoder-style network:
 ```
 ----------------------
  dimensions:               rows        cols    channels
@@ -134,7 +134,7 @@ Right now, this just has a sanity check for deconvolutional layers (convolutiona
  -----------
  ----------------------
 ```
-Then trains the model on a batch of 5 images over multiple epochs, and the loss successfully decreases over time.
+This model is then trained on a batch of 5 images over multiple epochs, and the loss successfully decreases over time.
 
 Compile and run with:
 ```
