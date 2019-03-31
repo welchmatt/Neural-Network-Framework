@@ -1,6 +1,6 @@
 !-------------------------------------------------------------------------------
-! helper functions for matrices; utilized by neural network structures, but can
-! be used for matrices in general
+! helper functions for arrays; thse are utilized by neural network structures,
+! but can be used on arrays in general
 !-------------------------------------------------------------------------------
 ! Matt Welch
 !-------------------------------------------------------------------------------
