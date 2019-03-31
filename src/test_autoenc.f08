@@ -2,7 +2,8 @@
 ! TODO:
 !       * this test is currently just a sanity check for deconvolution, where
 !         we see the loss decrease over time on a simple test.
-!         implement full autoencoder test
+!       * eventually I will implement a full autoencoder test, with
+!         visualizations in Python to view the results
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
