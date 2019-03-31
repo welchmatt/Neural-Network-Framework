@@ -29,7 +29,7 @@ call snn%snn_add_dense_layer(out_nodes  = 512, &
 call snn%snn_add_dense_layer(out_nodes  = 256, &
                              activation = 'relu')
 
-call snn%snn_add_dense_layer(out_nodes  = classes, &
+call snn%snn_add_dense_layer(out_nodes  = 10, &
                              activation = 'softmax')
 ```
 
