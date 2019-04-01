@@ -1451,10 +1451,11 @@ end subroutine
 ! res:         (real(:,:,:)) stores pooled output; overwritten
 ! res_idxs:    (real(:,:,:,:)) stores chosen max indices; overwritten
 !-------------------------------------------------------------------------------
-! alters ::    *res becomes 3D max pooling result
-!              *res_idxs becomes 4D array of max indices; 4th dimension is the
-!               channel, first three dimensions match those returned by res_idxs
-!               from max_pool_2D (see description above);
+! alters ::    * res becomes 3D max pooling result
+!              * res_idxs becomes 4D array of max indices;
+!                4th dimension channels,
+!                first three dimensions match those returned by res_idxs
+!                from max_pool_2D (see description above);
 !               -1 where max value in padding, not original array
 !-------------------------------------------------------------------------------
 subroutine max_pool_3D(a, padding, kernel_dims, stride, res, res_idxs)
