@@ -808,7 +808,8 @@ subroutine cross_correlate_2D(a, padding, kernel, stride, res)
 end subroutine
 
 !-------------------------------------------------------------------------------
-! calculates the cross-correlation between a 3D array and a 3D kernel
+! calculates the cross-correlation between a 3D array and a 3D kernel;
+! kernel channels match base array channels, so the output is 2D
 !-------------------------------------------------------------------------------
 ! a:        (real(:,:,:)) base array
 ! padding:  (characters) padding type
@@ -908,7 +909,8 @@ subroutine convolve_2D(a, padding, kernel, stride, res)
 end subroutine
 
 !-------------------------------------------------------------------------------
-! calculates the convolution between a 3D array and a 3D kernel
+! calculates the convolution between a 3D array and a 3D kernel;
+! kernel channels match base array channels, so the output is 2D
 !-------------------------------------------------------------------------------
 ! a:        (real(:,:,:)) base array
 ! padding:  (characters) padding type
