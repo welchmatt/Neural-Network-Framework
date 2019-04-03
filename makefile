@@ -1,8 +1,8 @@
 #-------------------------------------------------------------------------------
-# template makefile for neural network framework
+# makefile for neural network framework
 #
-# to implement the nueral network framework with your own code, see the template
-# sections marked and commented out below
+# sections marked "TEMPLATE" describe how to implement the nueral network
+# framework in your own code
 #-------------------------------------------------------------------------------
 # Matt Welch
 #-------------------------------------------------------------------------------
@@ -10,15 +10,7 @@
 FC = gfortran
 FFLAGS = -O3
 
-# uncomment FFLAGS below for debugging (overrides FFLAGS above).
-#
-# outside of optimization flags O1, O2, O3, Wall and Wextra may complain that
-# an array "may be used uninitialized in this function"; the usage is actually
-# correct based on the Fortran standard, which allows allocatable
-# arrays to be set without being explicitly allocated first (in which case,
-# they are implicitly allocated). the compiler complains in such cases, but the
-# output is unaffected (because it abides by the Fortran standard):
-
+# uncomment FFLAGS below for debugging (overrides FFLAGS above)
 FFLAGS = -Wall -Wextra -fsanitize=undefined -fsanitize=address -O3
 
 # directory structure; put all source files in src
@@ -126,4 +118,4 @@ allclean:
 	-rm -f mnist
 	-rm -f autoenc
 
-.PHONY: default xor mnist clean allclean
+.PHONY: default xor mnist autoenc clean allclean
