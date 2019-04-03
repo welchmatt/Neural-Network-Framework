@@ -1,1 +1,1 @@
-Compiled module files will be stored here.
+Compiled module files will be stored here.  Needed for makefile structure.
