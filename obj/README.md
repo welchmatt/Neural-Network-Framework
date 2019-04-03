@@ -1,1 +1,1 @@
-Compiled object files will be stored here.
+Compiled object files will be stored here.  Needed for makefile structure.
