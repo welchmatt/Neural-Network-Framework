@@ -83,7 +83,7 @@ Without much fine-tuning of the model's structure, the above version consistentl
 Two tests are stored in the src folder, alongside the framework files:
 
 ### test_mnist.f08
-Creates a CNN to learn and predict on the MNIST dataset.  See above for an overview of the structure.
+Creates a CNN to learn and predict on the MNIST dataset, which takes about two hours in total.  See above for an overview of the structure.
 
 Compile and run with:
 ```
