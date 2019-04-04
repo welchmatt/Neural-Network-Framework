@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-! implementation for DenseLayer (fully-connected) type (see below)
+! implementation for a dense, fully-connected layer type (DenseLayer)
 !-------------------------------------------------------------------------------
 ! Matt Welch
 !-------------------------------------------------------------------------------
