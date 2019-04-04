@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-! implementation for ConvLayer (convolutional) type (see below)
+! implementation of a convolutional and deconvolutional layer type (ConvLayer)
 !-------------------------------------------------------------------------------
 ! Matt Welch
 !-------------------------------------------------------------------------------
