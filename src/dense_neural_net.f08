@@ -1,5 +1,6 @@
 !-------------------------------------------------------------------------------
-! neural network implementation that utilizes DenseLayers (fully-connected)
+! neural network implementation that utilizes DenseLayers
+! (from dense_layer_definitions.f08)
 !-------------------------------------------------------------------------------
 ! Matt Welch
 !-------------------------------------------------------------------------------
