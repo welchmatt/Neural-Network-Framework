@@ -1,5 +1,6 @@
 !-------------------------------------------------------------------------------
-! neural network implementation that utilizes ConvLayers (convolutional)
+! neural network implementation that utilizes ConvLayers
+! (from conv_layer_definitions.f08)
 !-------------------------------------------------------------------------------
 ! Matt Welch
 !-------------------------------------------------------------------------------
