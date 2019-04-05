@@ -1,6 +1,6 @@
 !-------------------------------------------------------------------------------
-! neural network implementation that utilizes ConvLayers
-! (from conv_layer_definitions.f08)
+! neural network implementation that utilizes ConvLayers and PoolLayers
+! (from conv_layer_definitions.f08 and pool_layer_definitions.f08)
 !-------------------------------------------------------------------------------
 ! Matt Welch
 !-------------------------------------------------------------------------------
