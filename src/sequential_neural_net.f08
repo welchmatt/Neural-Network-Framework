@@ -4,25 +4,8 @@
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
-! neural network implementation that utilizes ConvLayers, PoolLayers, and &
-! DenseLayers in "sequence" (hence the name sequential - based on Keras library)
-!
-! serves as a wrapper for a ConvNN for ConvLayers and PoolLayers, followed by a
-! DenseNN for DenseLayers
-!
-! if both networks are present, this function handles the transfer of data from
-! ConvNN through DenseNN in forward propagation, and the opposite way for
-! backpropagation
-!
-! otherwise, it is also possible to only use the DenseNN and not ConvNN;
-! support for ConvNN and not DenseNN (for a Fully Convolutional Network) can be
-! implemented by simply adjusting the cnn_out_delta function to accept labels
-! and a loss function, and to calculate the proper derivative; for now, this
-! feature is not needed, because I am not yet trying to model a Fully
-! Convolutional Network. see conv_neural_net.f08 for more details
-!
-! therefore, the current functionality includes checks for ensuring that if
-! ConvLayers are present, they must be followed by DenseLayers
+! sequential neural network implementation that utilizes ConvLayers, PoolLayers,
+! and DenseLayers in "sequence" (hence the name sequential - based on Keras)
 !-------------------------------------------------------------------------------
 ! Matt Welch
 !-------------------------------------------------------------------------------
@@ -47,6 +30,13 @@ implicit none
 
 ! represents a neural network with support for ConvLayers (with PoolLayers)
 ! followed by DenseLayers 'in sequence', or only DenseLayers
+!
+! serves as a wrapper for a ConvNN for ConvLayers and PoolLayers, followed by a
+! DenseNN for DenseLayers
+!
+! if both networks are present, this function handles the transfer of data from
+! ConvNN through DenseNN in forward propagation, and the opposite way for
+! backpropagation
 !
 ! ConvLayers and PoolLayers wrapped by ConvNN, DenseLayers wrapped by DenseNN
 type :: SeqNN
