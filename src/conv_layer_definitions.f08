@@ -58,11 +58,14 @@ type :: ConvLayer
                                  b(:,:,:),   & ! biases
                                  z(:,:,:,:), & ! weighted inputs
                                  a(:,:,:,:), & ! activations
-                                 d(:,:,:,:)    ! deltas (errors)
+                                 d(:,:,:,:), & ! deltas (errors)
+                                 drop(:,:,:,:) ! dropout inputs (0=drop, 1=keep)
+    real                      :: drop_rate ! % of input nodes to drop
 contains
     ! procedures that traverse through linked list of ConvLayers
     procedure, pass           :: conv_init, conv_add_pool_layer, &
-                                 conv_forw_prop, conv_back_prop, conv_update
+                                 conv_forw_prop, conv_back_prop, conv_update, &
+                                 conv_dropout_rand
 end type
 contains 
 
@@ -83,16 +86,19 @@ contains
 ! stride:      (integer(2)) size of kernel moves in (y, x) directions
 ! activ:       (characters) activation function
 ! padding:     (characters) padding type
+!
+! drop_rate: (optional - real) % of input nodes to dropout
 !-------------------------------------------------------------------------------
 ! returns ::   (ConvLayer pointer) new ConvLayer
 !-------------------------------------------------------------------------------
 function create_conv_layer(input_dims, kernels, kernel_dims, stride, &
-                           activ, padding)
-    class(ConvLayer), pointer :: create_conv_layer
-    integer, intent(in)       :: input_dims(3), kernels, kernel_dims(2), &
-                                 stride(2)
-    character(*), intent(in)  :: activ, padding
-    integer                   :: pad_rows, final_rows, pad_cols, final_cols
+                           activ, padding, drop_rate)
+    class(ConvLayer), pointer  :: create_conv_layer
+    integer, intent(in)        :: input_dims(3), kernels, kernel_dims(2), &
+                                  stride(2)
+    character(*), intent(in)   :: activ, padding
+    integer                    :: pad_rows, final_rows, pad_cols, final_cols
+    real, intent(in), optional :: drop_rate
 
     if (.not. (padding == 'valid' .or. &
                padding == 'same' .or. &
@@ -113,6 +119,12 @@ function create_conv_layer(input_dims, kernels, kernel_dims, stride, &
     create_conv_layer%prev_layer => null()
     create_conv_layer%next_layer => null()
     create_conv_layer%next_pool  => null()
+
+    if (present(drop_rate)) then
+        create_conv_layer%drop_rate = drop_rate
+    else
+        create_conv_layer%drop_rate = 0
+    end if
 
     ! determine output shape from input pad then applying kernel
     pad_rows   = pad_calc(input_dims(1), kernel_dims(1), stride(1), padding)
@@ -197,11 +209,14 @@ subroutine conv_init(this, batch_size)
              this%a(this%out_rows, this%out_cols, this%out_channels, &
                     batch_size), &
              this%d(this%out_rows, this%out_cols, this%out_channels, &
-                    batch_size))
+                    batch_size), &
+
+             this%drop(this%in_dims(1), this%in_dims(2), this%in_dims(3), &
+                       batch_size))
 
     ! initialize kernels and biases
     call random_number(this%k)   ! random weights, uniform range: [0,1)
-    this%k = (this%k - 0.5) / 10 ! shift and scale to [-0.05, 0.05]
+    this%k = (this%k - 0.5) / 10 ! shift and scale to [-0.05, 0.05)
     this%b = 0
 
     ! init next PoolLayer
@@ -216,18 +231,49 @@ subroutine conv_init(this, batch_size)
 end subroutine
 
 !-------------------------------------------------------------------------------
+! helper subroutine to random initialize/overwrite a ConvLayers dropout array
+!-------------------------------------------------------------------------------
+! this:       (ConvLayer - implicitly passed)
+!-------------------------------------------------------------------------------
+! alters ::   this ConvLayer's drop array has randomized values
+!-------------------------------------------------------------------------------
+subroutine conv_dropout_rand(this)
+    class(ConvLayer)   :: this
+
+    ! initialize dropout layer; 0=drop, 1=keep (we will be multiplying)
+    if (this%drop_rate > 0) then
+        call random_number(this%drop) ! random weights, uniform range: [0,1)
+
+        ! this%drop_rate are dropped, so 1 - this%drop_rate are kept;
+        ! think of keep = 1 - this%drop_rate; add keep, then cast to int to
+        ! truncate kept values to 1 and dropped values to 0;
+        !
+        ! shift to [keep, 1+keep), so after truncating, so
+        ! values in top keep proportion are kept at 1
+        this%drop = int(this%drop + 1 - this%drop_rate)
+    end if
+end subroutine
+
+!-------------------------------------------------------------------------------
 ! helper subroutine to forward propagate through ConvLayers
 !-------------------------------------------------------------------------------
 ! this:     (ConvLayer - implicitly passed)
-! input:    (real(:,:,:,:)) input batch to forward propagate
+! input0:   (real(:,:,:,:)) input batch to forward propagate
 !-------------------------------------------------------------------------------
 ! alters :: this ConvLayer's z and a are calculated
 !-------------------------------------------------------------------------------
-subroutine conv_forw_prop(this, input)
+subroutine conv_forw_prop(this, input0)
     class(ConvLayer)  :: this
-    real, intent(in)  :: input(:,:,:,:)
-    real, allocatable :: z_slice(:,:,:)
+    real, intent(in)  :: input0(:,:,:,:)
+    real, allocatable :: input(:,:,:,:), z_slice(:,:,:)
     integer           :: i
+
+    if (this%drop_rate > 0) then
+        call this%conv_dropout_rand() ! randomize dropout
+        input = input0 * this%drop
+    else
+        input = input0
+    end if
 
     do i = 1, this%batch_size
         if (this%pad == 'full') then
@@ -323,17 +369,25 @@ end subroutine
 ! helper subroutine to adjust kernels and biases in ConvLayers
 !-------------------------------------------------------------------------------
 ! this:       (ConvLayer - implicitly passed)
-! input:      (real(:,:,:,:)) previous layer activations
+! input0:     (real(:,:,:,:)) previous layer activations
 ! learn_rate: (real) scale factor for change in kernels and biases
 !-------------------------------------------------------------------------------
 ! alters ::   this ConvLayer's kernels and biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
-subroutine conv_update(this, input, learn_rate)
+subroutine conv_update(this, input0, learn_rate)
     class(ConvLayer)  :: this
-    real, intent(in)  :: input(:,:,:,:), learn_rate
-    real, allocatable :: total_k_change(:,:,:,:), k_change(:,:,:,:)
+    real, intent(in)  :: input0(:,:,:,:), learn_rate
+    real, allocatable :: input(:,:,:,:), total_k_change(:,:,:,:), &
+                         k_change(:,:,:,:)
     real              :: scale
     integer           :: i
+
+    if (this%drop_rate > 0) then
+        call this%conv_dropout_rand() ! randomize dropout
+        input = input0 * this%drop
+    else
+        input = input0
+    end if
 
     ! initial call to start counter array (total_k_change)
     if (this%pad == 'full') then

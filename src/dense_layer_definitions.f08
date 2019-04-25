@@ -46,11 +46,14 @@ type :: DenseLayer
                                   b(:,:), & ! biases
                                   z(:,:), & ! weighted inputs
                                   a(:,:), & ! activations
-                                  d(:,:)    ! deltas (errors)
+                                  d(:,:), & ! deltas (errors),
+                                  drop(:,:) ! dropout inputs (0=drop, 1=keep)
+    real                       :: drop_rate ! % of input nodes to drop
 contains
     ! procedures that traverse through linked list of DenseLayers
     procedure, pass            :: dense_init, dense_update, &
-                                  dense_forw_prop, dense_back_prop
+                                  dense_forw_prop, dense_back_prop, &
+                                  dense_dropout_rand
 end type
 contains
 
@@ -64,13 +67,16 @@ contains
 ! in_nodes:  (integer) nodes feeding into DenseLayer
 ! out_nodes: (integer) nodes output by this DenseLayer
 ! activ:     (characters) activation function
+!
+! drop_rate: (optional - real) % of input nodes to dropout
 !-------------------------------------------------------------------------------
 ! returns :: (DenseLayer pointer) new DenseLayer
 !-------------------------------------------------------------------------------
-function create_dense_layer(in_nodes, out_nodes, activ)
+function create_dense_layer(in_nodes, out_nodes, activ, drop_rate)
     class(DenseLayer), pointer :: create_dense_layer
     integer, intent(in)        :: in_nodes, out_nodes
     character(*), intent(in)   :: activ
+    real, intent(in), optional :: drop_rate
 
     allocate(create_dense_layer)
     create_dense_layer%in_nodes   =  in_nodes
@@ -78,6 +84,12 @@ function create_dense_layer(in_nodes, out_nodes, activ)
     create_dense_layer%activ      =  activ
     create_dense_layer%prev_layer => null()
     create_dense_layer%next_layer => null()
+
+    if (present(drop_rate)) then
+        create_dense_layer%drop_rate = drop_rate
+    else
+        create_dense_layer%drop_rate = 0
+    end if
 end function
 
 !-------------------------------------------------------------------------------
@@ -115,16 +127,41 @@ subroutine dense_init(this, batch_size)
              this%b(batch_size, this%out_nodes), &
              this%z(batch_size, this%out_nodes), &
              this%a(batch_size, this%out_nodes), &
-             this%d(batch_size, this%out_nodes))
+             this%d(batch_size, this%out_nodes), &
+             this%drop(batch_size, this%in_nodes))
 
     ! initialize weights and biases
     call random_number(this%w)   ! random weights, uniform range: [0,1)
-    this%w = (this%w - 0.5) / 10 ! shift and scale to [-0.05, 0.05]
+    this%w = (this%w - 0.5) / 10 ! shift and scale to [-0.05, 0.05)
     this%b = 0
 
     ! traverse next layers
     if (associated(this%next_layer)) then
         call this%next_layer%dense_init(batch_size)
+    end if
+end subroutine
+
+!-------------------------------------------------------------------------------
+! helper subroutine to random initialize/overwrite a DenseLayers dropout array
+!-------------------------------------------------------------------------------
+! this:       (DenseLayer - implicitly passed)
+!-------------------------------------------------------------------------------
+! alters ::   this DenseLayer's drop array has randomized values
+!-------------------------------------------------------------------------------
+subroutine dense_dropout_rand(this)
+    class(DenseLayer)   :: this
+
+    ! initialize dropout layer; 0=drop, 1=keep (we will be multiplying)
+    if (this%drop_rate > 0) then
+        call random_number(this%drop) ! random weights, uniform range: [0,1)
+
+        ! this%drop_rate are dropped, so 1 - this%drop_rate are kept;
+        ! think of keep = 1 - this%drop_rate; add keep, then cast to int to
+        ! truncate kept values to 1 and dropped values to 0;
+        !
+        ! shift to [keep, 1+keep), so after truncating, so
+        ! values in top keep proportion are kept at 1
+        this%drop = int(this%drop + 1 - this%drop_rate)
     end if
 end subroutine
 
@@ -140,8 +177,13 @@ subroutine dense_forw_prop(this, input)
     class(DenseLayer) :: this
     real, intent(in)  :: input(:,:)
 
-    ! z(l) = matmul(a(l-1), w(l)) + b(l)
-    this%z = matmul(input, this%w) + this%b
+    ! z(l) = matmul(a(l-1), w(l)) + b(l); first handle dropout
+    if (this%drop_rate > 0) then
+        call this%dense_dropout_rand() ! randomize dropout
+        this%z = matmul(input*this%drop, this%w) + this%b
+    else
+        this%z = matmul(input, this%w) + this%b ! no drops
+    end if
 
     ! apply activation and traverse next layers (if this is not output layer);
     ! output layer has different activation function usage
@@ -201,9 +243,14 @@ subroutine dense_update(this, input, learn_rate)
     scale = learn_rate / this%batch_size
 
     ! weights:
-    ! w = w - avg_change
+    ! w = w - avg_change (also handling dropout)
     ! avg_change = matmul(transpose(a(l-1)), delta(l)) * scale
-    this%w = this%w - matmul(transpose(input), this%d) * scale
+    if (this%drop_rate > 0) then
+        call this%dense_dropout_rand() ! randomize dropout
+        this%w = this%w - matmul(transpose(input*this%drop), this%d) * scale
+    else
+        this%w = this%w - matmul(transpose(input), this%d) * scale ! no drops
+    end if
 
     ! biases:
     ! each row in the deltas corresponds to one example

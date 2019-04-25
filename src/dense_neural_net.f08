@@ -119,7 +119,7 @@ subroutine dnn_add_layer(this, out_nodes, activation)
         in_nodes = this%in_nodes         ! first layer fed by input variables
     end if
 
-    new_layer => create_dense_layer(in_nodes, out_nodes, activation)
+    new_layer => create_dense_layer(in_nodes, out_nodes, activation, 0.5)
 
     if (associated(this%output)) then
         ! new tail appended to existing tail

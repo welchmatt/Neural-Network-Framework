@@ -131,7 +131,7 @@ subroutine cnn_add_layer(this, kernels, kernel_dims, stride, activ, padding)
     end if
 
     new_layer => create_conv_layer(input_dims, kernels, kernel_dims, stride, &
-                                   activ, padding)
+                                   activ, padding, 0.5)
 
     if (associated(this%output)) then
         ! new tail appended to existing tail
