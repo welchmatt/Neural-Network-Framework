@@ -11,7 +11,7 @@ FC = gfortran
 FFLAGS = -O3
 
 # uncomment FFLAGS below for debugging (overrides FFLAGS above)
-FFLAGS = -Wall -Wextra -fsanitize=undefined -fsanitize=address -O3
+# FFLAGS = -Wall -Wextra -fsanitize=undefined -fsanitize=address -O3
 
 # directory structure; put all source files in src
 SDIR = src

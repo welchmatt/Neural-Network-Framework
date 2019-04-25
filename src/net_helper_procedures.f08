@@ -16,6 +16,53 @@ contains
 !===============================================================================
 !===============================================================================
 
+!-------------------------------------------------------------------------------
+! write 2D array as CSV-formatted row appended to given file, row-major order;
+! 
+! appends to file at filepath if it exists, otherwise creates new file;
+! filepath should be relative to overall project folder with executable
+!-------------------------------------------------------------------------------
+! a:        (real(:,:)) array to write
+! filepath: (characters) desired full path with filename
+!-------------------------------------------------------------------------------
+! alters :: filepath has values of a appended as CSV-formatted row
+!-------------------------------------------------------------------------------
+subroutine write_array_2D(a, filepath)
+    real, intent(in)              :: a(:,:)
+    character(*), intent(in)      :: filepath
+    integer                       :: ios, r, c, rows, cols
+    character(len=30)             :: val
+    character(len=:), allocatable :: cleanval
+
+    open(unit=1, file=filepath, form='formatted', position='append', iostat=ios)
+
+    if (ios /= 0) then
+        print *, 'Error opening file.'
+        stop -1
+    endif
+
+    rows = size(a, dim=1)
+    cols = size(a, dim=2)
+
+    ! write values in one row in file, row by row in matrix
+    do r = 1, rows
+        do c = 1, cols
+            write(val, *) a(r,c)          ! real -> string
+            cleanval = trim(adjustl(val)) ! move lead pad to end, then cut end
+
+            write(unit=1, fmt='(A)', advance='no') cleanval
+
+            if (r < rows .or. c < cols) then
+                ! don't write ',' after final value
+                write(unit=1, fmt='(A)', advance='no') ','
+            else
+                ! done row; flush to next line
+                write(unit=1, fmt=*)
+            endif
+        end do
+    end do
+end subroutine
+
 !===============================================================================
 ! activation functions and their derivatives
 !   *** elemental functions can also be applied to arrays of the input type
