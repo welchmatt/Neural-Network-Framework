@@ -101,13 +101,16 @@ end subroutine
 ! stride:      (integer(2)) size of kernel moves in (y, x) directions
 ! activ:       (characters) activation function
 ! padding:     (characters) padding type
+! drop_rate:   (real) % of input nodes to dropout
 !-------------------------------------------------------------------------------
-! alters ::   new ConvLayer appended to this ConvNN's linked list
+! alters ::    new ConvLayer appended to this ConvNN's linked list
 !-------------------------------------------------------------------------------
-subroutine cnn_add_layer(this, kernels, kernel_dims, stride, activ, padding)
+subroutine cnn_add_layer(this, kernels, kernel_dims, stride, activ, padding, &
+                         drop_rate)
     class(ConvNN)             :: this
     integer, intent(in)       :: kernels, kernel_dims(2), stride(2)
     character(*), intent(in)  :: activ, padding
+    real, intent(in)          :: drop_rate
     class(ConvLayer), pointer :: new_layer
     integer                   :: input_dims(3)
 
@@ -131,7 +134,7 @@ subroutine cnn_add_layer(this, kernels, kernel_dims, stride, activ, padding)
     end if
 
     new_layer => create_conv_layer(input_dims, kernels, kernel_dims, stride, &
-                                   activ, padding, 0.5)
+                                   activ, padding, drop_rate)
 
     if (associated(this%output)) then
         ! new tail appended to existing tail

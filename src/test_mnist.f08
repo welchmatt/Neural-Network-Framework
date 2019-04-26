@@ -160,13 +160,15 @@ program main
                                 kernel_dims = [3,3], &
                                 stride      = [1,1], &
                                 activ       = 'relu', &
-                                padding     = 'valid')
+                                padding     = 'valid', &
+                                drop_rate   = 0.5)
 
     call snn%snn_add_conv_layer(kernels     = 64, &
                                 kernel_dims = [3,3], &
                                 stride      = [1,1], &
                                 activ       = 'relu', &
-                                padding     = 'valid')
+                                padding     = 'valid', &
+                                drop_rate   = 0.5)
 
     call snn%snn_add_pool_layer(kernel_dims = [2,2], &
                                 stride      = [2,2], &
@@ -174,13 +176,16 @@ program main
                                 padding     = 'valid')
 
     call snn%snn_add_dense_layer(out_nodes  = 512, &
-                                 activation = 'relu')
+                                 activation = 'relu', &
+                                 drop_rate   = 0.5)
 
     call snn%snn_add_dense_layer(out_nodes  = 256, &
-                                 activation = 'relu')
+                                 activation = 'relu', &
+                                 drop_rate   = 0.5)
 
     call snn%snn_add_dense_layer(out_nodes  = classes, &
-                                 activation = 'softmax')
+                                 activation = 'softmax', &
+                                 drop_rate   = 0.5)
 
     call snn%snn_summary()
 

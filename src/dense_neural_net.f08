@@ -102,13 +102,15 @@ end subroutine
 ! this:       (DenseNN - implicitly passed)
 ! out_nodes:  (integer) nodes output by new DenseLayer
 ! activation: (characters) activation function
+! drop_rate:  (real) % of input nodes to dropout
 !-------------------------------------------------------------------------------
 ! alters ::   new DenseLayer appended to this DenseNN's linked list
 !-------------------------------------------------------------------------------
-subroutine dnn_add_layer(this, out_nodes, activation)
+subroutine dnn_add_layer(this, out_nodes, activation, drop_rate)
     class(DenseNN)             :: this
     integer, intent(in)        :: out_nodes
     character(*), intent(in)   :: activation
+    real, intent(in)           :: drop_rate
     class(DenseLayer), pointer :: new_layer
     integer                    :: in_nodes
 
@@ -119,7 +121,7 @@ subroutine dnn_add_layer(this, out_nodes, activation)
         in_nodes = this%in_nodes         ! first layer fed by input variables
     end if
 
-    new_layer => create_dense_layer(in_nodes, out_nodes, activation, 0.5)
+    new_layer => create_dense_layer(in_nodes, out_nodes, activation, drop_rate)
 
     if (associated(this%output)) then
         ! new tail appended to existing tail

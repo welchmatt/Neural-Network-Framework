@@ -67,8 +67,7 @@ contains
 ! in_nodes:  (integer) nodes feeding into DenseLayer
 ! out_nodes: (integer) nodes output by this DenseLayer
 ! activ:     (characters) activation function
-!
-! drop_rate: (optional - real) % of input nodes to dropout
+! drop_rate: (real) % of input nodes to dropout
 !-------------------------------------------------------------------------------
 ! returns :: (DenseLayer pointer) new DenseLayer
 !-------------------------------------------------------------------------------
@@ -76,20 +75,15 @@ function create_dense_layer(in_nodes, out_nodes, activ, drop_rate)
     class(DenseLayer), pointer :: create_dense_layer
     integer, intent(in)        :: in_nodes, out_nodes
     character(*), intent(in)   :: activ
-    real, intent(in), optional :: drop_rate
+    real, intent(in)           :: drop_rate
 
     allocate(create_dense_layer)
     create_dense_layer%in_nodes   =  in_nodes
     create_dense_layer%out_nodes  =  out_nodes
     create_dense_layer%activ      =  activ
+    create_dense_layer%drop_rate  =  drop_rate
     create_dense_layer%prev_layer => null()
     create_dense_layer%next_layer => null()
-
-    if (present(drop_rate)) then
-        create_dense_layer%drop_rate = drop_rate
-    else
-        create_dense_layer%drop_rate = 0
-    end if
 end function
 
 !-------------------------------------------------------------------------------

@@ -86,8 +86,7 @@ contains
 ! stride:      (integer(2)) size of kernel moves in (y, x) directions
 ! activ:       (characters) activation function
 ! padding:     (characters) padding type
-!
-! drop_rate: (optional - real) % of input nodes to dropout
+! drop_rate:   (real) % of input nodes to dropout
 !-------------------------------------------------------------------------------
 ! returns ::   (ConvLayer pointer) new ConvLayer
 !-------------------------------------------------------------------------------
@@ -97,8 +96,8 @@ function create_conv_layer(input_dims, kernels, kernel_dims, stride, &
     integer, intent(in)        :: input_dims(3), kernels, kernel_dims(2), &
                                   stride(2)
     character(*), intent(in)   :: activ, padding
+    real, intent(in)           :: drop_rate
     integer                    :: pad_rows, final_rows, pad_cols, final_cols
-    real, intent(in), optional :: drop_rate
 
     if (.not. (padding == 'valid' .or. &
                padding == 'same' .or. &
@@ -116,15 +115,10 @@ function create_conv_layer(input_dims, kernels, kernel_dims, stride, &
     create_conv_layer%stride     =  stride
     create_conv_layer%activ      =  activ
     create_conv_layer%pad        =  padding
+    create_conv_layer%drop_rate  = drop_rate
     create_conv_layer%prev_layer => null()
     create_conv_layer%next_layer => null()
     create_conv_layer%next_pool  => null()
-
-    if (present(drop_rate)) then
-        create_conv_layer%drop_rate = drop_rate
-    else
-        create_conv_layer%drop_rate = 0
-    end if
 
     ! determine output shape from input pad then applying kernel
     pad_rows   = pad_calc(input_dims(1), kernel_dims(1), stride(1), padding)

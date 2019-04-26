@@ -121,15 +121,18 @@ end subroutine
 ! padding:     (characters) padding type
 !
 ! input_dims:  (optional - integer(3)) (height, width, channels) of one input
+! drop_rate:   (optional - real) % of input nodes to dropout
 !-------------------------------------------------------------------------------
 ! alters ::    new ConvLayer appended to this SeqNN's ConvNN linked list
 !-------------------------------------------------------------------------------
 subroutine snn_add_conv_layer(this, kernels, kernel_dims, stride, activ, &
-                              padding, input_dims)
+                              padding, input_dims, drop_rate)
     class(SeqNN)                  :: this
     integer, intent(in)           :: kernels, kernel_dims(2), stride(2)
     character(*), intent(in)      :: activ, padding
     integer, intent(in), optional :: input_dims(3)
+    real, intent(in), optional    :: drop_rate
+    real                          :: drop
 
     if (this%cnn_done) then
         print *, '---------------------------------------------'
@@ -161,7 +164,14 @@ subroutine snn_add_conv_layer(this, kernels, kernel_dims, stride, activ, &
         end if
     end if
 
-    call this%cnn%cnn_add_layer(kernels, kernel_dims, stride, activ, padding)
+    if (present(drop_rate)) then
+        drop = drop_rate
+    else
+        drop = 0
+    end if
+
+    call this%cnn%cnn_add_layer(kernels, kernel_dims, stride, &
+                                activ, padding, drop)
 end subroutine
 
 !-------------------------------------------------------------------------------
@@ -210,14 +220,18 @@ end subroutine
 ! activation:  (characters) activation function
 !
 ! input_nodes: (optional - integer) input variables
+! drop_rate:   (optional - real) % of input nodes to dropout
 !-------------------------------------------------------------------------------
 ! alters ::    new DenseLayer appended to this SeqNN's DenseNN linked list
 !-------------------------------------------------------------------------------
-subroutine snn_add_dense_layer(this, out_nodes, activation, input_nodes)
+subroutine snn_add_dense_layer(this, out_nodes, activation, input_nodes, &
+                               drop_rate)
     class(SeqNN)                  :: this
     integer, intent(in)           :: out_nodes
     character(*), intent(in)      :: activation
     integer, intent(in), optional :: input_nodes
+    real, intent(in), optional    :: drop_rate
+    real                          :: drop
 
     if (.not. this%cnn_done) then
         ! do not allow adding more ConvLayers after this new DenseLayers
@@ -258,7 +272,14 @@ subroutine snn_add_dense_layer(this, out_nodes, activation, input_nodes)
         end if
     end if
 
-    call this%dnn%dnn_add_layer(out_nodes, activation)
+
+    if (present(drop_rate)) then
+        drop = drop_rate
+    else
+        drop = 0
+    end if
+
+    call this%dnn%dnn_add_layer(out_nodes, activation, drop)
 end subroutine
 
 !-------------------------------------------------------------------------------
