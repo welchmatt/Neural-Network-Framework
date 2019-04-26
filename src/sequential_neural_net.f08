@@ -315,15 +315,17 @@ end subroutine
 ! must only pass dense_batch if no ConvLayers present
 !-------------------------------------------------------------------------------
 ! this:        (SeqNN - implicitly passed)
+! is_train:    (logical) in training iteration
 !
 ! conv_batch:  (optional - real(:,:,:,:)) input batch for ConvLayers
 ! dense_batch: (optional - real(:,:)) input batch for DenseLayers
 !-------------------------------------------------------------------------------
 ! alters ::    this SeqNN's ConvNN and DenseNN layers' z's and a's calculated
 !-------------------------------------------------------------------------------
-subroutine snn_forw_prop(this, conv_batch, dense_batch)
+subroutine snn_forw_prop(this, is_train, conv_batch, dense_batch)
     class(SeqNN)               :: this
     real, intent(in), optional :: conv_batch(:,:,:,:), dense_batch(:,:)
+    logical, intent(in)        :: is_train
     real, allocatable          :: dnn_batch(:,:)
     integer                    :: i
 
@@ -337,7 +339,7 @@ subroutine snn_forw_prop(this, conv_batch, dense_batch)
             stop -1
         end if
 
-        call this%cnn%cnn_forw_prop(conv_batch)
+        call this%cnn%cnn_forw_prop(conv_batch, is_train)
 
         ! stop here if no dnn to feed into
         if (.not. associated(this%dnn)) then
@@ -375,7 +377,7 @@ subroutine snn_forw_prop(this, conv_batch, dense_batch)
 
     ! forward prop through dnn (either from cnn or direct input)
     if (associated(this%dnn)) then
-        call this%dnn%dnn_forw_prop(dnn_batch)
+        call this%dnn%dnn_forw_prop(dnn_batch, is_train)
     end if
 end subroutine
 
@@ -485,16 +487,18 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! this:        (SeqNN - implicitly passed)
 ! learn_rate:  (real) scale factor for change in kernels and biases
+! is_train:    (logical) in training iteration
 !
 ! conv_batch:  (optional - real(:,:,:,:)) input batch for ConvLayers
 ! dense_batch: (optional - real(:,:)) input batch for DenseLayers
 !-------------------------------------------------------------------------------
 ! alters ::    this SeqNN's kernels, weights, biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
-subroutine snn_update(this, learn_rate, conv_batch, dense_batch)
+subroutine snn_update(this, learn_rate, is_train, conv_batch, dense_batch)
     class(SeqNN)               :: this
     real, intent(in)           :: learn_rate
     real, intent(in), optional :: conv_batch(:,:,:,:), dense_batch(:,:)
+    logical, intent(in)        :: is_train
     real, allocatable          :: dnn_batch(:,:)
     integer                    :: i
 
@@ -508,7 +512,7 @@ subroutine snn_update(this, learn_rate, conv_batch, dense_batch)
             stop -1
         end if
 
-        call this%cnn%cnn_update(conv_batch, learn_rate)
+        call this%cnn%cnn_update(conv_batch, learn_rate, is_train)
 
         ! stop here if no dnn to feed into
         if (.not. associated(this%dnn)) then
@@ -546,7 +550,7 @@ subroutine snn_update(this, learn_rate, conv_batch, dense_batch)
 
     ! update through dnn (either from cnn or direct input)
     if (associated(this%dnn)) then
-        call this%dnn%dnn_update(dnn_batch, learn_rate)
+        call this%dnn%dnn_update(dnn_batch, learn_rate, is_train)
     end if
 end subroutine
 
@@ -672,26 +676,26 @@ subroutine snn_fit(this, batch_size, epochs, learn_rate, loss, &
                     conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
                     labels = target_labels(input_i:input_i+batch_size-1, :)
 
-                    call this%snn_forw_prop(conv_batch=conv_x)
+                    call this%snn_forw_prop(.true., conv_batch=conv_x)
                     call this%snn_back_prop(loss, target_labels=labels)
-                    call this%snn_update(learn_rate, conv_batch=conv_x)
+                    call this%snn_update(learn_rate, .true., conv_batch=conv_x)
                 else
                     ! cnn input and output
                     conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
                     images = target_images(:,:,:,input_i:input_i+batch_size-1)
 
-                    call this%snn_forw_prop(conv_batch=conv_x)
+                    call this%snn_forw_prop(.true., conv_batch=conv_x)
                     call this%snn_back_prop(loss, target_images=images)
-                    call this%snn_update(learn_rate, conv_batch=conv_x)
+                    call this%snn_update(learn_rate, .true., conv_batch=conv_x)
                 end if
             else
                 ! dnn input and output
                 dense_x = dense_input(input_i:input_i+batch_size-1, :)
                 labels = target_labels(input_i:input_i+batch_size-1, :)
 
-                call this%snn_forw_prop(dense_batch=dense_x)
+                call this%snn_forw_prop(.true., dense_batch=dense_x)
                 call this%snn_back_prop(loss, target_labels=labels)
-                call this%snn_update(learn_rate, dense_batch=dense_x)
+                call this%snn_update(learn_rate, .true., dense_batch=dense_x)
             end if
 
             ! move index to start of next batch
@@ -706,12 +710,12 @@ subroutine snn_fit(this, batch_size, epochs, learn_rate, loss, &
                 if (associated(this%cnn)) then
                     if (associated(this%dnn)) then
                         ! cnn input, dnn output
-                        call this%snn_forw_prop(conv_batch=conv_x)
+                        call this%snn_forw_prop(.false., conv_batch=conv_x)
 
                         loss_val = lossfunc_2D(this%dnn%output%a, labels, loss)
                     else
                         ! cnn input and output
-                        call this%snn_forw_prop(conv_batch=conv_x)
+                        call this%snn_forw_prop(.false., conv_batch=conv_x)
 
                         if (associated(this%cnn%output%next_pool)) then
                             ! pooling present
@@ -726,7 +730,7 @@ subroutine snn_fit(this, batch_size, epochs, learn_rate, loss, &
                     end if
                 else
                     ! dnn input and output
-                    call this%snn_forw_prop(dense_batch=dense_x)
+                    call this%snn_forw_prop(.false., dense_batch=dense_x)
 
                     loss_val = lossfunc_2D(this%dnn%output%a, labels, loss)
                 end if
@@ -836,20 +840,20 @@ real function snn_regression_loss(this, loss, conv_input, dense_input, &
                 conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
                 labels = target_labels(input_i:input_i+batch_size-1, :)
 
-                call this%snn_forw_prop(conv_batch=conv_x)
+                call this%snn_forw_prop(.false., conv_batch=conv_x)
             else
                 ! cnn input and output
                 conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
                 images = target_images(:,:,:,input_i:input_i+batch_size-1)
 
-                call this%snn_forw_prop(conv_batch=conv_x)
+                call this%snn_forw_prop(.false., conv_batch=conv_x)
             end if
         else
             ! dnn input and output
             dense_x = dense_input(input_i:input_i+batch_size-1, :)
             labels = target_labels(input_i:input_i+batch_size-1, :)
 
-            call this%snn_forw_prop(dense_batch=dense_x)
+            call this%snn_forw_prop(.false., dense_batch=dense_x)
         end if
 
         if (associated(this%dnn)) then
@@ -947,11 +951,11 @@ real function snn_one_hot_accuracy(this, target_labels, &
         if (associated(this%cnn)) then
             conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
             labels = target_labels(input_i : input_i+batch_size-1, :)
-            call this%snn_forw_prop(conv_batch=conv_x)
+            call this%snn_forw_prop(.false., conv_batch=conv_x)
         else
             dense_x = dense_input(input_i:input_i+batch_size-1, :)
             labels = target_labels(input_i : input_i+batch_size-1, :)
-            call this%snn_forw_prop(dense_batch=dense_x)
+            call this%snn_forw_prop(.false., dense_batch=dense_x)
         end if
 
         ! dnn%output%a has prediction vector upon completion
@@ -1029,10 +1033,10 @@ subroutine snn_predict(this, res, conv_input, dense_input)
         ! extract whole input batch (slice the batch items starting at i) 
         if (associated(this%cnn)) then
             conv_x = conv_input(:,:,:,(i-1)*batch_size+1:i*batch_size)
-            call this%snn_forw_prop(conv_batch=conv_x)
+            call this%snn_forw_prop(.false., conv_batch=conv_x)
         else
             dense_x = dense_input((i-1)*batch_size+1:i*batch_size,:)
-            call this%snn_forw_prop(dense_batch=dense_x)
+            call this%snn_forw_prop(.false., dense_batch=dense_x)
         end if
 
         ! record predictions
@@ -1059,7 +1063,7 @@ subroutine snn_predict(this, res, conv_input, dense_input)
             ! batch currently allocated to proper batch shape;
             ! overwrite the items we need, ignore remainder
             conv_x(:,:,:,:remain) = conv_input(:,:,:,items-remain+1:)
-            call this%snn_forw_prop(conv_batch=conv_x)
+            call this%snn_forw_prop(.false., conv_batch=conv_x)
         else
             ! handle if batch wasn't already made
             if (.not. allocated(dense_x)) then
@@ -1071,7 +1075,7 @@ subroutine snn_predict(this, res, conv_input, dense_input)
             ! batch currently allocated to proper batch shape;
             ! overwrite the items we need, ignore remainder
             dense_x(:remain, :) = dense_input(items-remain+1:,:)
-            call this%snn_forw_prop(dense_batch=dense_x)
+            call this%snn_forw_prop(.false., dense_batch=dense_x)
         end if
 
         ! fill last section of predictions with remaining items

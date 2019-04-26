@@ -209,14 +209,16 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! this:     (ConvNN - implicitly passed)
 ! input:    (real(:,:,:,:)) input batch to forward propagate
+! is_train: (logical) in training iteration
 !-------------------------------------------------------------------------------
 ! alters :: this ConvNN's ConvLayers' z's and a's calculated
 !-------------------------------------------------------------------------------
-subroutine cnn_forw_prop(this, input)
-    class(ConvNN)    :: this
-    real, intent(in) :: input(:,:,:,:)
+subroutine cnn_forw_prop(this, input, is_train)
+    class(ConvNN)       :: this
+    real, intent(in)    :: input(:,:,:,:)
+    logical, intent(in) :: is_train
 
-    call this%first_hid%conv_forw_prop(input)
+    call this%first_hid%conv_forw_prop(input, is_train)
 end subroutine
 
 !-------------------------------------------------------------------------------
@@ -304,14 +306,16 @@ end subroutine
 ! this:       (ConvNN - implicitly passed)
 ! input:      (real(:,:,:,:)) input batch
 ! learn_rate: (real) scale factor for change in kernels and biases
+! is_train:   (logical) in training iteration
 !-------------------------------------------------------------------------------
 ! alters ::   this ConvNN's kernels and biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
-subroutine cnn_update(this, input, learn_rate)
-    class(ConvNN)     :: this
-    real, intent(in)  :: input(:,:,:,:), learn_rate
+subroutine cnn_update(this, input, learn_rate, is_train)
+    class(ConvNN)       :: this
+    real, intent(in)    :: input(:,:,:,:), learn_rate
+    logical, intent(in) :: is_train
 
     ! first hid a(l-1) is input batch
-    call this%first_hid%conv_update(input, learn_rate)
+    call this%first_hid%conv_update(input, learn_rate, is_train)
 end subroutine
 end module

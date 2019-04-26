@@ -157,14 +157,16 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! this:     (DenseNN - implicitly passed)
 ! input:    (real(:,:)) input batch to forward propagate
+! is_train: (logical) in training iteration
 !-------------------------------------------------------------------------------
 ! alters :: this DenseNN's DenseLayers' z's and a's calculated
 !-------------------------------------------------------------------------------
-subroutine dnn_forw_prop(this, input)
-    class(DenseNN)   :: this
-    real, intent(in) :: input(:,:)
+subroutine dnn_forw_prop(this, input, is_train)
+    class(DenseNN)      :: this
+    real, intent(in)    :: input(:,:)
+    logical, intent(in) :: is_train
 
-    call this%first_hid%dense_forw_prop(input)
+    call this%first_hid%dense_forw_prop(input, is_train)
 
     ! different activation function on output layer
     ! a(l) = out_activ(z(l))
@@ -254,14 +256,16 @@ end subroutine
 ! this:       (DenseNN - implicitly passed)
 ! input:      (real(:,:)) input batch
 ! learn_rate: (real) scale factor for change in weights and biases
+! is_train:   (logical) in training iteration
 !-------------------------------------------------------------------------------
 ! alters ::   this DenseNN's weights and biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
-subroutine dnn_update(this, input, learn_rate)
-    class(DenseNN)    :: this
-    real, intent(in)  :: input(:,:), learn_rate
+subroutine dnn_update(this, input, learn_rate, is_train)
+    class(DenseNN)      :: this
+    real, intent(in)    :: input(:,:), learn_rate
+    logical, intent(in) :: is_train
 
     ! first_hid's a(l-1) is input batch
-    call this%first_hid%dense_update(input, learn_rate)
+    call this%first_hid%dense_update(input, learn_rate, is_train)
 end subroutine
 end module

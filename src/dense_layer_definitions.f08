@@ -164,15 +164,17 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! this:     (DenseLayer - implicitly passed)
 ! input:    (real(:,:)) input batch to forward propagate
+! is_train: (logical) in training iteration
 !-------------------------------------------------------------------------------
 ! alters :: this DenseLayer's z and a are calculated
 !-------------------------------------------------------------------------------
-subroutine dense_forw_prop(this, input)
-    class(DenseLayer) :: this
-    real, intent(in)  :: input(:,:)
+subroutine dense_forw_prop(this, input, is_train)
+    class(DenseLayer)   :: this
+    real, intent(in)    :: input(:,:)
+    logical, intent(in) :: is_train
 
     ! z(l) = matmul(a(l-1), w(l)) + b(l); first handle dropout
-    if (this%drop_rate > 0) then
+    if (this%drop_rate > 0 .and. is_train) then
         call this%dense_dropout_rand() ! randomize dropout
         this%z = matmul(input*this%drop, this%w) + this%b
     else
@@ -184,7 +186,7 @@ subroutine dense_forw_prop(this, input)
     if (associated(this%next_layer)) then
         ! a(l) = activ(z(l))
         this%a = activfunc(this%z, this%activ)
-        call this%next_layer%dense_forw_prop(this%a)
+        call this%next_layer%dense_forw_prop(this%a, is_train)
     end if
 end subroutine
 
@@ -223,15 +225,17 @@ end subroutine
 ! this:       (DenseLayer - implicitly passed)
 ! input:      (real(:,:)) previous layer activations
 ! learn_rate: (real) scale factor for change in weights and biases
+! is_train:   (logical) in training iteration
 !-------------------------------------------------------------------------------
 ! alters ::   this DenseLayer's weights and biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
-subroutine dense_update(this, input, learn_rate)
-    class(DenseLayer) :: this
-    real, intent(in)  :: input(:,:), learn_rate
-    real, allocatable :: avg_change_row(:)
-    real              :: scale
-    integer           :: r
+subroutine dense_update(this, input, learn_rate, is_train)
+    class(DenseLayer)   :: this
+    real, intent(in)    :: input(:,:), learn_rate
+    logical, intent(in) :: is_train
+    real, allocatable   :: avg_change_row(:)
+    real                :: scale
+    integer             :: r
 
     ! multiply by learn_rate, then average across all examples in batch
     scale = learn_rate / this%batch_size
@@ -239,7 +243,7 @@ subroutine dense_update(this, input, learn_rate)
     ! weights:
     ! w = w - avg_change (also handling dropout)
     ! avg_change = matmul(transpose(a(l-1)), delta(l)) * scale
-    if (this%drop_rate > 0) then
+    if (this%drop_rate > 0 .and. is_train) then
         call this%dense_dropout_rand() ! randomize dropout
         this%w = this%w - matmul(transpose(input*this%drop), this%d) * scale
     else
@@ -263,7 +267,7 @@ subroutine dense_update(this, input, learn_rate)
 
     ! traverse next layers
     if (associated(this%next_layer)) then
-        call this%next_layer%dense_update(this%a, learn_rate)
+        call this%next_layer%dense_update(this%a, learn_rate, is_train)
     end if
 end subroutine
 end module

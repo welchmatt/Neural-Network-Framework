@@ -115,7 +115,7 @@ function create_conv_layer(input_dims, kernels, kernel_dims, stride, &
     create_conv_layer%stride     =  stride
     create_conv_layer%activ      =  activ
     create_conv_layer%pad        =  padding
-    create_conv_layer%drop_rate  = drop_rate
+    create_conv_layer%drop_rate  =  drop_rate
     create_conv_layer%prev_layer => null()
     create_conv_layer%next_layer => null()
     create_conv_layer%next_pool  => null()
@@ -253,16 +253,18 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! this:     (ConvLayer - implicitly passed)
 ! input0:   (real(:,:,:,:)) input batch to forward propagate
+! is_train: (logical) in training iteration
 !-------------------------------------------------------------------------------
 ! alters :: this ConvLayer's z and a are calculated
 !-------------------------------------------------------------------------------
-subroutine conv_forw_prop(this, input0)
-    class(ConvLayer)  :: this
-    real, intent(in)  :: input0(:,:,:,:)
-    real, allocatable :: input(:,:,:,:), z_slice(:,:,:)
-    integer           :: i
+subroutine conv_forw_prop(this, input0, is_train)
+    class(ConvLayer)    :: this
+    real, intent(in)    :: input0(:,:,:,:)
+    logical, intent(in) :: is_train
+    real, allocatable   :: input(:,:,:,:), z_slice(:,:,:)
+    integer             :: i
 
-    if (this%drop_rate > 0) then
+    if (this%drop_rate > 0 .and. is_train) then
         call this%conv_dropout_rand() ! randomize dropout
         input = input0 * this%drop
     else
@@ -297,10 +299,10 @@ subroutine conv_forw_prop(this, input0)
     if (associated(this%next_layer)) then
         if (associated(this%next_pool)) then
             ! has next_pool; forward prop pooled output
-            call this%next_layer%conv_forw_prop(this%next_pool%a)
+            call this%next_layer%conv_forw_prop(this%next_pool%a, is_train)
         else
             ! forward prop regular output
-            call this%next_layer%conv_forw_prop(this%a)
+            call this%next_layer%conv_forw_prop(this%a, is_train)
         end if
     end if
 end subroutine
@@ -365,18 +367,20 @@ end subroutine
 ! this:       (ConvLayer - implicitly passed)
 ! input0:     (real(:,:,:,:)) previous layer activations
 ! learn_rate: (real) scale factor for change in kernels and biases
+! is_train:   (logical) in training iteration
 !-------------------------------------------------------------------------------
 ! alters ::   this ConvLayer's kernels and biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
-subroutine conv_update(this, input0, learn_rate)
-    class(ConvLayer)  :: this
-    real, intent(in)  :: input0(:,:,:,:), learn_rate
-    real, allocatable :: input(:,:,:,:), total_k_change(:,:,:,:), &
-                         k_change(:,:,:,:)
-    real              :: scale
-    integer           :: i
+subroutine conv_update(this, input0, learn_rate, is_train)
+    class(ConvLayer)    :: this
+    real, intent(in)    :: input0(:,:,:,:), learn_rate
+    logical, intent(in) :: is_train
+    real, allocatable   :: input(:,:,:,:), total_k_change(:,:,:,:), &
+                           k_change(:,:,:,:)
+    real                :: scale
+    integer             :: i
 
-    if (this%drop_rate > 0) then
+    if (this%drop_rate > 0 .and. is_train) then
         call this%conv_dropout_rand() ! randomize dropout
         input = input0 * this%drop
     else
@@ -426,9 +430,10 @@ subroutine conv_update(this, input0, learn_rate)
     if (associated(this%next_layer)) then
         if (associated(this%next_pool)) then
             ! prop pooled output
-            call this%next_layer%conv_update(this%next_pool%a, learn_rate)
+            call this%next_layer%conv_update(this%next_pool%a, &
+                                             learn_rate, is_train)
         else
-            call this%next_layer%conv_update(this%a, learn_rate)
+            call this%next_layer%conv_update(this%a, learn_rate, is_train)
         end if
     end if
 end subroutine
