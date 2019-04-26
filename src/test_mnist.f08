@@ -177,15 +177,15 @@ program main
 
     call snn%snn_add_dense_layer(out_nodes  = 512, &
                                  activation = 'relu', &
-                                 drop_rate   = 0.5)
+                                 drop_rate  = 0.5)
 
     call snn%snn_add_dense_layer(out_nodes  = 256, &
                                  activation = 'relu', &
-                                 drop_rate   = 0.5)
+                                 drop_rate  = 0.5)
 
     call snn%snn_add_dense_layer(out_nodes  = classes, &
                                  activation = 'softmax', &
-                                 drop_rate   = 0.5)
+                                 drop_rate  = 0.5)
 
     call snn%snn_summary()
 
