@@ -184,6 +184,16 @@ subroutine dense_forw_prop(this, input, is_train)
     ! apply activation and traverse next layers (if this is not output layer);
     ! output layer has different activation function usage
     if (associated(this%next_layer)) then
+        if (this%activ == 'softmax') then
+            print *, '--------------------------------------------'
+            print *, '(dense_layer_definitions :: dense_forw_prop)'
+            print *, 'invalid activation function.'
+            print *, 'softmax only supported for output layer.'
+            print *, 'supported: sigmoid, relu, leaky_relu, elu'
+            print *, '--------------------------------------------'
+            stop -1
+        end if
+
         ! a(l) = activ(z(l))
         this%a = activfunc(this%z, this%activ)
         call this%next_layer%dense_forw_prop(this%a, is_train)

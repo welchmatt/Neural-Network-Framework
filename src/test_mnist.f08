@@ -160,31 +160,25 @@ program main
                                 kernel_dims = [3,3], &
                                 stride      = [1,1], &
                                 activ       = 'relu', &
-                                padding     = 'valid', &
-                                drop_rate   = 0.5)
+                                padding     = 'valid')
 
     call snn%snn_add_conv_layer(kernels     = 64, &
                                 kernel_dims = [3,3], &
                                 stride      = [1,1], &
                                 activ       = 'relu', &
-                                padding     = 'valid', &
-                                drop_rate   = 0.5)
+                                padding     = 'valid')
 
     call snn%snn_add_pool_layer(kernel_dims = [2,2], &
                                 stride      = [2,2], &
                                 pool        = 'max', &
                                 padding     = 'valid')
 
-    call snn%snn_add_dense_layer(out_nodes  = 512, &
-                                 activation = 'relu', &
-                                 drop_rate  = 0.5)
-
-    call snn%snn_add_dense_layer(out_nodes  = 256, &
-                                 activation = 'relu', &
-                                 drop_rate  = 0.5)
+    call snn%snn_add_dense_layer(out_nodes  = 128, &
+                                 activ      = 'relu', &
+                                 drop_rate  = 0.25)
 
     call snn%snn_add_dense_layer(out_nodes  = classes, &
-                                 activation = 'softmax', &
+                                 activ      = 'softmax', &
                                  drop_rate  = 0.5)
 
     call snn%snn_summary()
@@ -195,7 +189,7 @@ program main
     call snn%snn_fit(conv_input    = train_images, &
                      target_labels = train_y_onehot, &
                      batch_size    = 128, &
-                     epochs        = 2, &
+                     epochs        = 12, &
                      learn_rate    = 0.1, &
                      loss          = 'cross_entropy', &
                      verbose       = 2)

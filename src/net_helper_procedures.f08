@@ -207,13 +207,15 @@ end subroutine
 
 !-------------------------------------------------------------------------------
 ! wrapper for element-wise activation functions
+! SUPPORTED: sigmoid, relu, leaky_relu, elu;
+! must be checked by caller, so that this function can remain elemental
 !-------------------------------------------------------------------------------
 ! z:         (real)
 ! activ:     (characters) activation function
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-impure elemental real function activfunc(z, activ)
+elemental real function activfunc(z, activ)
     real, intent(in)         :: z
     character(*), intent(in) :: activ
 
@@ -227,24 +229,21 @@ impure elemental real function activfunc(z, activ)
         case ('elu')
             activfunc = elu(z)
         case default
-            print *, '-----------------------------------------'
-            print *, '(net_helper_functions :: activfunc)'
-            print *, 'invalid activation function.'
-            print *, 'supported: sigmoid, relu, leaky_relu, elu'
-            print *, '-----------------------------------------'
-            stop -1
+            activfunc = 0
     end select
 end function
 
 !-------------------------------------------------------------------------------
-! wrapper for element-wise activation function derivative
+! wrapper for element-wise activation function derivative;
+! SUPPORTED: sigmoid, relu, leaky_relu, elu;
+! must be checked by caller, so that this function can remain elemental
 !-------------------------------------------------------------------------------
 ! z:         (real)
 ! activ:     (characters) activation function
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-impure elemental real function activfunc_deriv(z, activ)
+elemental real function activfunc_deriv(z, activ)
     real, intent(in)         :: z
     character(*), intent(in) :: activ
 
@@ -258,12 +257,7 @@ impure elemental real function activfunc_deriv(z, activ)
         case ('elu')
             activfunc_deriv = elu_deriv(z)
         case default
-            print *, '-----------------------------------------'
-            print *, '(net_helper_functions :: activfunc_deriv)'
-            print *, 'invalid activation function.'
-            print *, 'supported: sigmoid, relu, leaky_relu, elu'
-            print *, '-----------------------------------------'
-            stop -1
+            activfunc_deriv = 0
     end select
 end function
 
@@ -824,7 +818,12 @@ subroutine cross_correlate_2D(a, padding, kernel, stride, res)
     k_rows = size(kernel, dim=1)
     k_cols = size(kernel, dim=2)
 
-    call pad_2D(a, padding, [k_rows,k_cols], stride, padded)
+    if (padding /= 'valid') then
+        call pad_2D(a, padding, [k_rows,k_cols], stride, padded)
+    else
+        padded = a ! no padding to account for
+    end if
+
     padded_rows = size(padded, dim=1)
     padded_cols = size(padded, dim=2)
 
@@ -891,7 +890,12 @@ subroutine cross_correlate_3D(a, padding, kernel, stride, res)
         stop -1
     end if
 
-    call pad_3D(a, padding, [k_rows,k_cols], stride, padded)
+    if (padding /= 'valid') then
+        call pad_3D(a, padding, [k_rows,k_cols], stride, padded)
+    else
+        padded = a ! no padding to account for
+    end if
+
     padded_rows = size(padded, dim=1)
     padded_cols = size(padded, dim=2)
 
@@ -1430,7 +1434,12 @@ subroutine max_pool_2D(a, padding, kernel_dims, stride, res, res_idxs)
     k_rows = kernel_dims(1)
     k_cols = kernel_dims(2)
 
-    call pad_2D(a, padding, [k_rows,k_cols], stride, padded)
+    if (padding /= 'valid') then
+        call pad_2D(a, padding, [k_rows,k_cols], stride, padded)
+    else
+        padded = a ! no padding to account for
+    end if
+
     padded_rows = size(padded, dim=1)
     padded_cols = size(padded, dim=2)
 

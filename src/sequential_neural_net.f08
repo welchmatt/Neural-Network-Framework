@@ -134,6 +134,16 @@ subroutine snn_add_conv_layer(this, kernels, kernel_dims, stride, activ, &
     real, intent(in), optional    :: drop_rate
     real                          :: drop
 
+    if (.not. (activ == 'sigmoid' .or. activ == 'relu' .or. &
+        activ == 'leaky_relu' .or. activ == 'elu')) then
+        print *, '---------------------------------------------'
+        print *, '(sequential_neural_net :: snn_add_conv_layer)'
+        print *, 'invalid activation function.'
+        print *, 'supported: sigmoid, relu, leaky_relu, elu'
+        print *, '---------------------------------------------'
+        stop -1
+    end if
+
     if (this%cnn_done) then
         print *, '---------------------------------------------'
         print *, '(sequential_neural_net :: snn_add_conv_layer)'
@@ -217,21 +227,32 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! this:        (SeqNN - implicitly passed)
 ! out_nodes:   (integer) nodes output by new DenseLayer
-! activation:  (characters) activation function
+! activ:       (characters) activation function
 !
 ! input_nodes: (optional - integer) input variables
 ! drop_rate:   (optional - real) % of input nodes to dropout
 !-------------------------------------------------------------------------------
 ! alters ::    new DenseLayer appended to this SeqNN's DenseNN linked list
 !-------------------------------------------------------------------------------
-subroutine snn_add_dense_layer(this, out_nodes, activation, input_nodes, &
-                               drop_rate)
+subroutine snn_add_dense_layer(this, out_nodes, activ, input_nodes, drop_rate)
     class(SeqNN)                  :: this
     integer, intent(in)           :: out_nodes
-    character(*), intent(in)      :: activation
+    character(*), intent(in)      :: activ
     integer, intent(in), optional :: input_nodes
     real, intent(in), optional    :: drop_rate
     real                          :: drop
+
+    if (.not. (activ == 'sigmoid' .or. activ == 'relu' .or. &
+        activ == 'leaky_relu' .or. activ == 'elu' .or. &
+        activ == 'softmax')) then
+        print *, '---------------------------------------------'
+        print *, '(sequential_neural_net :: snn_add_conv_layer)'
+        print *, 'invalid activation function.'
+        print *, 'supported: sigmoid, relu, leaky_relu, elu'
+        print *, 'also supported for output layer: softmax'
+        print *, '---------------------------------------------'
+        stop -1
+    end if
 
     if (.not. this%cnn_done) then
         ! do not allow adding more ConvLayers after this new DenseLayers
@@ -272,14 +293,13 @@ subroutine snn_add_dense_layer(this, out_nodes, activation, input_nodes, &
         end if
     end if
 
-
     if (present(drop_rate)) then
         drop = drop_rate
     else
         drop = 0
     end if
 
-    call this%dnn%dnn_add_layer(out_nodes, activation, drop)
+    call this%dnn%dnn_add_layer(out_nodes, activ, drop)
 end subroutine
 
 !-------------------------------------------------------------------------------

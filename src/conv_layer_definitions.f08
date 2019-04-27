@@ -29,10 +29,9 @@ implicit none
 ! each kernel is shared between images in a batch, and each produces an output
 ! channel. kernels have 4D matrix dimensions: (rows, columns, channels, batches)
 !
-! the implementation here uses 'untied' biases, whereby the bias comprises
-! multiple nodes to match the output channel produced by passing a kernel over
-! an input. there is one copy that is shared between images. biases have 3D
-! matrix dimensions: (rows, columns, channels)
+! the implementation here uses 'tied' biases, where there is 1 bias per channel;
+! bias value repeated into higher dimension array so we can add array later
+! rather than using nested loops
 !
 ! weighted inputs, activations, and deltas match the output channel produced by
 ! passing a kernel over an input, and are passed between ConvLayers to preserve
@@ -60,7 +59,7 @@ type :: ConvLayer
                                  a(:,:,:,:), & ! activations
                                  d(:,:,:,:), & ! deltas (errors)
                                  drop(:,:,:,:) ! dropout inputs (0=drop, 1=keep)
-    real                      :: drop_rate ! % of input nodes to drop
+    real                      :: drop_rate     ! % of input nodes to drop
 contains
     ! procedures that traverse through linked list of ConvLayers
     procedure, pass           :: conv_init, conv_add_pool_layer, &
@@ -376,7 +375,7 @@ subroutine conv_update(this, input0, learn_rate, is_train)
     real, intent(in)    :: input0(:,:,:,:), learn_rate
     logical, intent(in) :: is_train
     real, allocatable   :: input(:,:,:,:), total_k_change(:,:,:,:), &
-                           k_change(:,:,:,:)
+                           k_change(:,:,:,:), chan_avgs(:,:,:), chan_biases(:)
     real                :: scale
     integer             :: i
 
@@ -423,8 +422,20 @@ subroutine conv_update(this, input0, learn_rate, is_train)
     ! weights updated on average change
     this%k = this%k - total_k_change * scale
 
-    ! biases updated on average batch deltas
-    this%b = this%b - sum(this%d, dim=4) * scale
+    ! calculate 1 bias per channel per batch;
+    ! start with 4D: (row,col,channel,batch):
+
+    ! sum then average by batch, and scale, 3D: (row,col,channel)
+    chan_avgs = sum(this%d, dim=4) * scale
+
+    ! sum then average channels, 1D: (channel), where each val is a bias
+    chan_biases = sum(sum(chan_avgs, dim=1), dim=1) / &       ! sum
+                  (size(this%d, dim=1) * size(this%d, dim=2)) ! count
+
+    ! one bias per channel -> 2D array; can add bias array instead of loops
+    do i = 1, size(this%b, dim=3)
+        this%b(:,:,i) = this%b(:,:,i) - chan_biases(i)
+    end do
 
     ! traverse next layers
     if (associated(this%next_layer)) then
