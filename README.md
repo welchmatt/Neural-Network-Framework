@@ -96,6 +96,10 @@ Compile and run with:
 make mnist
 ./mnist
 ```
+If the MNIST data in the mnist-in-csv folder did not successfulyl download, ensure that you have Git LFS installed, and then pull the data files with:
+```
+git lfs pull
+```
 
 ### test_xor.f08
 Creates a dense NN to learn and predict the XOR function, using the classic 2-2-1 node structure:
