@@ -8,14 +8,14 @@
 #-------------------------------------------------------------------------------
 
 FC = gfortran-8
-# FFLAGS = -Wall -Wextra -O3
+FFLAGS = -Wall -Wextra -O3
 
 # uncomment FFLAGS below for debugging (overrides FFLAGS above)
 # FFLAGS = -Wall -Wextra -fsanitize=undefined -fsanitize=address -O3
 
 # uncomment FFLAGS below for profiling (overrides FFLAGS above); after running:
 # gprof EXECUTABLE_NAME gmon.out > profile.txt
-FFLAGS = -Wall -Wextra -pg -O3
+# FFLAGS = -Wall -Wextra -pg -O3
 
 # directory structure; put all source files in src
 SDIR = src

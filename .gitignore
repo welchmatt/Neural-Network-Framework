@@ -5,3 +5,6 @@
 xor
 mnist
 autoenc
+gmon.out
+profile.txt
+profile_new.txt

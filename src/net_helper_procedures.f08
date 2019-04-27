@@ -811,7 +811,7 @@ subroutine cross_correlate_2D(a, padding, kernel, stride, res)
     real, allocatable        :: padded(:,:)
     integer                  :: a_rows, a_cols, k_rows, k_cols, &
                                 padded_rows, padded_cols, &
-                                res_rows, res_cols, r, c
+                                res_rows, res_cols, r, c, kr, kc
 
     a_rows = size(a, dim=1)
     a_cols = size(a, dim=2)
@@ -844,11 +844,17 @@ subroutine cross_correlate_2D(a, padding, kernel, stride, res)
 
     do r = 1, res_rows
         do c = 1, res_cols
-            ! each index in the result is the dot product between the
-            ! kernel and a matching-sized section of the padded array
-            res(r,c) = sum(padded((r-1)*stride(1)+1:(r-1)*stride(1)+k_rows, &
-                                  (c-1)*stride(2)+1:(c-1)*stride(2)+k_cols) * &
-                           kernel)
+            res(r,c) = 0
+
+            do kr = 1, k_rows
+                do kc = 1, k_cols
+                    ! each index in the result is the dot product between the
+                    ! kernel and a matching-sized section of the padded array
+                    res(r,c) = res(r,c) + padded((r-1)*stride(1)+kr, &
+                                                 (c-1)*stride(2)+kc) * &
+                                          kernel(kr,kc)
+                end do
+            end do
         end do
     end do
 end subroutine
@@ -873,7 +879,7 @@ subroutine cross_correlate_3D(a, padding, kernel, stride, res)
     integer                  :: a_rows, a_cols, a_channels, &
                                 k_rows, k_cols, k_channels, &
                                 padded_rows, padded_cols, &
-                                res_rows, res_cols, r, c
+                                res_rows, res_cols, r, c, kr, kc, kd
 
     a_rows     = size(a, dim=1)
     a_cols     = size(a, dim=2)
@@ -916,12 +922,19 @@ subroutine cross_correlate_3D(a, padding, kernel, stride, res)
 
     do r = 1, res_rows
         do c = 1, res_cols
-            ! each index in the result is the dot product between the
-            ! kernel and a matching-sized section of the padded array
-            res(r,c) = sum(padded((r-1)*stride(1)+1:(r-1)*stride(1)+k_rows, &
-                                  (c-1)*stride(2)+1:(c-1)*stride(2)+k_cols, &
-                                  :) * &
-                           kernel)
+            res(r,c) = 0
+
+            do kr = 1, k_rows
+                do kc = 1, k_cols
+                    do kd = 1, k_channels
+                        ! each index in the result is the dot product between the
+                        ! kernel and a matching-sized section of the padded array
+                        res(r,c) = res(r,c) + padded((r-1)*stride(1)+kr, &
+                                                     (c-1)*stride(2)+kc, kd) * &
+                                              kernel(kr,kc,kd)
+                    end do
+                end do
+            end do
         end do
     end do
 end subroutine
