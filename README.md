@@ -4,7 +4,6 @@ A high-level neural network framework, written in Fortran with no external libra
 The following is an example CNN to predict on the MNIST dataset (see Tests below).  The name "snn" stands for "sequential neural network," as in Keras, which is used as the foundation for adding different layers.
 ```fortran
 snn => create_snn()
-    snn => create_snn()
 
 call snn%snn_add_conv_layer(input_dims  = [28,28,1],&
                             kernels     = 32, &
