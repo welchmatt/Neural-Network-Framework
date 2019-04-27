@@ -48,8 +48,7 @@ call snn%snn_summary()
  dimensions:              nodes
  -----------
  DenseLayer input:         9216
- DenseLayer output:         512
- DenseLayer output:         256
+ DenseLayer output:         128
  DenseLayer output:          10
  ----------------------
 ```
