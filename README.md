@@ -4,38 +4,33 @@ A high-level neural network framework, written in Fortran with no external libra
 The following is an example CNN to predict on the MNIST dataset (see Tests below).  The name "snn" stands for "sequential neural network," as in Keras, which is used as the foundation for adding different layers.
 ```fortran
 snn => create_snn()
+    snn => create_snn()
 
 call snn%snn_add_conv_layer(input_dims  = [28,28,1],&
                             kernels     = 32, &
                             kernel_dims = [3,3], &
                             stride      = [1,1], &
                             activ       = 'relu', &
-                            padding     = 'valid', &
-                            drop_rate   = 0.5)
+                            padding     = 'valid')
 
 call snn%snn_add_conv_layer(kernels     = 64, &
                             kernel_dims = [3,3], &
                             stride      = [1,1], &
                             activ       = 'relu', &
-                            padding     = 'valid', &
-                            drop_rate   = 0.5)
+                            padding     = 'valid')
 
 call snn%snn_add_pool_layer(kernel_dims = [2,2], &
                             stride      = [2,2], &
                             pool        = 'max', &
                             padding     = 'valid')
 
-call snn%snn_add_dense_layer(out_nodes  = 512, &
-                             activation = 'relu', &
-                             drop_rate  = 0.5)
-
-call snn%snn_add_dense_layer(out_nodes  = 256, &
-                             activation = 'relu', &
-                             drop_rate  = 0.5)
+call snn%snn_add_dense_layer(out_nodes  = 128, &
+                             activ      = 'relu')
 
 call snn%snn_add_dense_layer(out_nodes  = classes, &
-                             activation = 'softmax', &
-                             drop_rate  = 0.5)
+                             activ      = 'softmax')
+
+call snn%snn_summary()
 ```
 
 We can then view a summary of our model:
@@ -64,8 +59,8 @@ Then fit the model to our training data:
 ```fortran
 call snn%snn_fit(conv_input    = train_images, &
                  target_labels = train_y_onehot, &
-                 batch_size    = 128, &
-                 epochs        = 2, &
+                 batch_size    = 256, &
+                 epochs        = 5, &
                  learn_rate    = 0.1, &
                  loss          = 'cross_entropy', &
                  verbose       = 2)
@@ -78,7 +73,7 @@ accuracy = snn%snn_one_hot_accuracy(conv_input   = test_images, &
                                     verbose      = 2)
 ```
 
-Without much fine-tuning of the model's structure, the above version consistently achieves an accuracy of around 95%.
+Without much fine-tuning of the model's structure, the above version consistently achieves an accuracy of around 96%.
 
 ## Prerequisites
 * GFortran 8.3.0 (for Fortran 2008 support)
@@ -89,7 +84,7 @@ Without much fine-tuning of the model's structure, the above version consistentl
 Two tests are stored in the src folder, alongside the framework files:
 
 ### test_mnist.f08
-Creates a CNN to learn and predict on the MNIST dataset, which takes about two hours in total.  See above for an overview of the structure.
+Creates a CNN to learn and predict on the MNIST dataset.  See above for an overview of the structure.
 
 Compile and run with:
 ```
