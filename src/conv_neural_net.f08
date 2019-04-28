@@ -110,7 +110,7 @@ subroutine cnn_add_layer(this, kernels, kernel_dims, stride, activ, padding, &
     class(ConvNN)             :: this
     integer, intent(in)       :: kernels, kernel_dims(2), stride(2)
     character(*), intent(in)  :: activ, padding
-    real, intent(in)          :: drop_rate
+    real(kind=8), intent(in)  :: drop_rate
     class(ConvLayer), pointer :: new_layer
     integer                   :: input_dims(3)
 
@@ -214,9 +214,9 @@ end subroutine
 ! alters :: this ConvNN's ConvLayers' z's and a's calculated
 !-------------------------------------------------------------------------------
 subroutine cnn_forw_prop(this, input, is_train)
-    class(ConvNN)       :: this
-    real, intent(in)    :: input(:,:,:,:)
-    logical, intent(in) :: is_train
+    class(ConvNN)            :: this
+    real(kind=8), intent(in) :: input(:,:,:,:)
+    logical, intent(in)      :: is_train
 
     call this%first_hid%conv_forw_prop(input, is_train)
 end subroutine
@@ -232,7 +232,7 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine cnn_out_delta(this, targets, loss)
     class(ConvNN)            :: this
-    real, intent(in)         :: targets(:,:,:,:)
+    real(kind=8), intent(in) :: targets(:,:,:,:)
     character(*), intent(in) :: loss
 
     select case (loss)
@@ -278,7 +278,7 @@ end subroutine
 subroutine cnn_back_prop(this, out_delta_done, targets, loss)
     class(ConvNN)                      :: this
     logical, intent(in)                :: out_delta_done
-    real, intent(in), optional         :: targets(:,:,:,:)
+    real(kind=8), intent(in), optional :: targets(:,:,:,:)
     character(*), intent(in), optional :: loss
 
     ! if out deltas not calculated by other source, we must calculate them
@@ -311,9 +311,9 @@ end subroutine
 ! alters ::   this ConvNN's kernels and biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
 subroutine cnn_update(this, input, learn_rate, is_train)
-    class(ConvNN)       :: this
-    real, intent(in)    :: input(:,:,:,:), learn_rate
-    logical, intent(in) :: is_train
+    class(ConvNN)            :: this
+    real(kind=8), intent(in) :: input(:,:,:,:), learn_rate
+    logical, intent(in)      :: is_train
 
     ! first hid a(l-1) is input batch
     call this%first_hid%conv_update(input, learn_rate, is_train)

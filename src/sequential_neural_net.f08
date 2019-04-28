@@ -127,12 +127,12 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine snn_add_conv_layer(this, kernels, kernel_dims, stride, activ, &
                               padding, input_dims, drop_rate)
-    class(SeqNN)                  :: this
-    integer, intent(in)           :: kernels, kernel_dims(2), stride(2)
-    character(*), intent(in)      :: activ, padding
-    integer, intent(in), optional :: input_dims(3)
-    real, intent(in), optional    :: drop_rate
-    real                          :: drop
+    class(SeqNN)                       :: this
+    integer, intent(in)                :: kernels, kernel_dims(2), stride(2)
+    character(*), intent(in)           :: activ, padding
+    integer, intent(in), optional      :: input_dims(3)
+    real(kind=8), intent(in), optional :: drop_rate
+    real(kind=8)                       :: drop
 
     if (.not. (activ == 'sigmoid' .or. activ == 'relu' .or. &
         activ == 'leaky_relu' .or. activ == 'elu')) then
@@ -235,12 +235,12 @@ end subroutine
 ! alters ::    new DenseLayer appended to this SeqNN's DenseNN linked list
 !-------------------------------------------------------------------------------
 subroutine snn_add_dense_layer(this, out_nodes, activ, input_nodes, drop_rate)
-    class(SeqNN)                  :: this
-    integer, intent(in)           :: out_nodes
-    character(*), intent(in)      :: activ
-    integer, intent(in), optional :: input_nodes
-    real, intent(in), optional    :: drop_rate
-    real                          :: drop
+    class(SeqNN)                       :: this
+    integer, intent(in)                :: out_nodes
+    character(*), intent(in)           :: activ
+    integer, intent(in), optional      :: input_nodes
+    real(kind=8), intent(in), optional :: drop_rate
+    real(kind=8)                       :: drop
 
     if (.not. (activ == 'sigmoid' .or. activ == 'relu' .or. &
         activ == 'leaky_relu' .or. activ == 'elu' .or. &
@@ -343,11 +343,11 @@ end subroutine
 ! alters ::    this SeqNN's ConvNN and DenseNN layers' z's and a's calculated
 !-------------------------------------------------------------------------------
 subroutine snn_forw_prop(this, is_train, conv_batch, dense_batch)
-    class(SeqNN)               :: this
-    real, intent(in), optional :: conv_batch(:,:,:,:), dense_batch(:,:)
-    logical, intent(in)        :: is_train
-    real, allocatable          :: dnn_batch(:,:)
-    integer                    :: i
+    class(SeqNN)                       :: this
+    real(kind=8), intent(in), optional :: conv_batch(:,:,:,:), dense_batch(:,:)
+    logical, intent(in)                :: is_train
+    real(kind=8), allocatable          :: dnn_batch(:,:)
+    integer                            :: i
 
     if (associated(this%cnn)) then
         ! cnn present; must only pass conv_batch
@@ -411,13 +411,15 @@ end subroutine
 ! alters :: this SeqNN's ConvNN output ConvLayer's d is calculated
 !-------------------------------------------------------------------------------
 subroutine snn_cnn_out_delta(this)
-    class(SeqNN)      :: this
-    real, allocatable :: d_wrt_a(:,:), d_slice(:,:,:)
-    integer           :: i
+    class(SeqNN)              :: this
+    real(kind=8), allocatable :: d_wrt_a(:,:), d_slice(:,:,:)
+    integer                   :: i
 
     ! first find derivative of cost wrt a(L) OR pool(L) (if present);
-    ! each row in d_wrt_a is an entry in the batch
-    d_wrt_a = matmul(this%dnn%first_hid%d, transpose(this%dnn%first_hid%w))
+    ! each row in d_wrt_a is an entry in the batch:
+    ! d_wrt_a = matmul(this%dnn%first_hid%d, transpose(this%dnn%first_hid%w))
+    call dgemm_wrapper(this%dnn%first_hid%d, this%dnn%first_hid%w, d_wrt_a, &
+                       transb=.true.)
 
     this%cnn%output%d = 0
 
@@ -455,10 +457,11 @@ end subroutine
 ! alters :: this SeqNN's ConvNN and DenseNN layers' d's are calculated
 !-------------------------------------------------------------------------------
 subroutine snn_back_prop(this, loss, target_labels, target_images)
-    class(SeqNN)               :: this
-    character(*), intent(in)   :: loss
-    real, intent(in), optional :: target_labels(:,:), target_images(:,:,:,:)
-    logical                    :: out_delta_done
+    class(SeqNN)                       :: this
+    character(*), intent(in)           :: loss
+    real(kind=8), intent(in), optional :: target_labels(:,:), &
+                                          target_images(:,:,:,:)
+    logical                            :: out_delta_done
 
     out_delta_done = .false.
 
@@ -515,12 +518,12 @@ end subroutine
 ! alters ::    this SeqNN's kernels, weights, biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
 subroutine snn_update(this, learn_rate, is_train, conv_batch, dense_batch)
-    class(SeqNN)               :: this
-    real, intent(in)           :: learn_rate
-    real, intent(in), optional :: conv_batch(:,:,:,:), dense_batch(:,:)
-    logical, intent(in)        :: is_train
-    real, allocatable          :: dnn_batch(:,:)
-    integer                    :: i
+    class(SeqNN)                       :: this
+    real(kind=8), intent(in)           :: learn_rate
+    real(kind=8), intent(in), optional :: conv_batch(:,:,:,:), dense_batch(:,:)
+    logical, intent(in)                :: is_train
+    real(kind=8), allocatable          :: dnn_batch(:,:)
+    integer                            :: i
 
     if (associated(this%cnn)) then
         ! cnn present; must only pass conv_batch
@@ -598,17 +601,17 @@ end subroutine
 subroutine snn_fit(this, batch_size, epochs, learn_rate, loss, &
                    conv_input, dense_input, verbose, &
                    target_labels, target_images)
-    class(SeqNN)             :: this
-    integer, intent(in)      :: batch_size, epochs
-    real, intent(in)         :: learn_rate
-    character(*), intent(in) :: loss
-    real, optional           :: conv_input(:,:,:,:), dense_input(:,:), &
-                                target_labels(:,:), target_images(:,:,:,:)
-    integer, optional        :: verbose
-    real, allocatable        :: conv_x(:,:,:,:), dense_x(:,:), &
-                                labels(:,:), images(:,:,:,:)
-    integer                  :: batches, input_i, i, j
-    real                     :: loss_val
+    class(SeqNN)              :: this
+    integer, intent(in)       :: batch_size, epochs
+    real(kind=8), intent(in)  :: learn_rate
+    character(*), intent(in)  :: loss
+    real(kind=8), optional    :: conv_input(:,:,:,:), dense_input(:,:), &
+                                 target_labels(:,:), target_images(:,:,:,:)
+    integer, optional         :: verbose
+    real(kind=8), allocatable :: conv_x(:,:,:,:), dense_x(:,:), &
+                                 labels(:,:), images(:,:,:,:)
+    integer                   :: batches, input_i, i, j
+    real(kind=8)              :: loss_val
 
     if (.not. this%is_init) then
         call this%snn_init(batch_size)
@@ -782,17 +785,17 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! returns:       (real) this SeqNN's loss on the given data
 !-------------------------------------------------------------------------------
-real function snn_regression_loss(this, loss, conv_input, dense_input, &
-                                  target_labels, target_images, verbose)
-    class(SeqNN)             :: this
-    character(*), intent(in) :: loss
-    real, optional           :: conv_input(:,:,:,:), dense_input(:,:), &
-                                target_labels(:,:), target_images(:,:,:,:)
-    integer, optional        :: verbose
-    real, allocatable        :: conv_x(:,:,:,:), dense_x(:,:), &
-                                labels(:,:), images(:,:,:,:)
-    integer                  :: batch_size, batches, input_i, i
-    real                     :: total_loss, loss_val
+real(kind=8) function snn_regression_loss(this, loss, conv_input, dense_input, &
+                                          target_labels, target_images, verbose)
+    class(SeqNN)              :: this
+    character(*), intent(in)  :: loss
+    real(kind=8), optional    :: conv_input(:,:,:,:), dense_input(:,:), &
+                                 target_labels(:,:), target_images(:,:,:,:)
+    integer, optional         :: verbose
+    real(kind=8), allocatable :: conv_x(:,:,:,:), dense_x(:,:), &
+                                 labels(:,:), images(:,:,:,:)
+    integer                   :: batch_size, batches, input_i, i
+    real(kind=8)              :: total_loss, loss_val
 
     batch_size = this%batch_size
 
@@ -918,15 +921,16 @@ end function
 !-------------------------------------------------------------------------------
 ! returns:       (real) this SeqNN's one-hot accuracy on the given data
 !-------------------------------------------------------------------------------
-real function snn_one_hot_accuracy(this, target_labels, &
-                                   conv_input, dense_input, verbose)
-    class(SeqNN)               :: this
-    real, intent(in)           :: target_labels(:,:)
-    real, intent(in), optional :: conv_input(:,:,:,:), dense_input(:,:)
-    integer, optional          :: verbose
-    real, allocatable          :: conv_x(:,:,:,:), dense_x(:,:), labels(:,:)
-    integer                    :: batch_size, batches, input_i, i
-    real                       :: total_correct_prob
+real(kind=8) function snn_one_hot_accuracy(this, target_labels, &
+                                           conv_input, dense_input, verbose)
+    class(SeqNN)                       :: this
+    real(kind=8), intent(in)           :: target_labels(:,:)
+    real(kind=8), intent(in), optional :: conv_input(:,:,:,:), dense_input(:,:)
+    integer, optional                  :: verbose
+    real(kind=8), allocatable          :: conv_x(:,:,:,:), dense_x(:,:), &
+                                          labels(:,:)
+    integer                            :: batch_size, batches, input_i, i
+    real(kind=8)                       :: total_correct_prob
 
     batch_size = this%batch_size
 
@@ -1003,10 +1007,12 @@ end function
 ! alters ::     res becomes predictions of this SeqNN on input data
 !-------------------------------------------------------------------------------
 subroutine snn_predict(this, res, conv_input, dense_input)
-    class(SeqNN)               :: this
-    real, allocatable          :: res(:,:), conv_x(:,:,:,:), dense_x(:,:)
-    real, intent(in), optional :: conv_input(:,:,:,:), dense_input(:,:)
-    integer                    :: batch_size, items, batches, input_i, i, remain
+    class(SeqNN)                       :: this
+    real(kind=8), allocatable          :: res(:,:), conv_x(:,:,:,:), &
+                                          dense_x(:,:)
+    real(kind=8), intent(in), optional :: conv_input(:,:,:,:), dense_input(:,:)
+    integer                            :: batch_size, items, batches, input_i, &
+                                          i, remain
 
     batch_size = this%batch_size
 

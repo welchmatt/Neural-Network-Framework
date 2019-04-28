@@ -35,13 +35,13 @@ program main
     use sequential_neural_net
     implicit none
 
-    class(SeqNN), pointer :: snn
-    real, allocatable     :: image(:,:,:), train_images(:,:,:,:), &
-                             test_images(:,:,:,:), train(:,:), test(:,:), &
-                             train_x(:,:), test_x(:,:)
-    integer               :: train_rows, test_rows, variables, classes, &
-                             pixels, row, i
-    real                  :: loss
+    class(SeqNN), pointer     :: snn
+    real(kind=8), allocatable :: image(:,:,:), train_images(:,:,:,:), &
+                                 test_images(:,:,:,:), train(:,:), test(:,:), &
+                                 train_x(:,:), test_x(:,:)
+    integer                   :: train_rows, test_rows, variables, classes, &
+                                 pixels, row, i
+    real(kind=8)              :: loss
 
     train_rows = 5
     test_rows = 5

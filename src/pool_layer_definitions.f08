@@ -40,7 +40,7 @@ type :: PoolLayer
                                  batch_size
     character(len=20)         :: pool, pad
     ! dimensions: (height, width, channel, batch_item)
-    real, allocatable         :: a(:,:,:,:)        ! pool result
+    real(kind=8), allocatable :: a(:,:,:,:)        ! pool result
     ! dimensions: (height, width, (2: Y, X), channel, batch_item)
     integer, allocatable      :: a_idxs(:,:,:,:,:) ! indices for pool result
 contains
@@ -139,11 +139,11 @@ end subroutine
 ! alters :: this PoolLayer's a and a_idxs are calculated
 !-------------------------------------------------------------------------------
 subroutine pool_forw_prop(this, input)
-    class(PoolLayer)     :: this
-    real, intent(in)     :: input(:,:,:,:)
-    real, allocatable    :: a_slice(:,:,:)
-    integer, allocatable :: a_idxs_slice(:,:,:,:)
-    integer              :: i
+    class(PoolLayer)          :: this
+    real(kind=8), intent(in)  :: input(:,:,:,:)
+    real(kind=8), allocatable :: a_slice(:,:,:)
+    integer, allocatable      :: a_idxs_slice(:,:,:,:)
+    integer                   :: i
 
     if (this%pool == 'max') then
         ! max pool each batch item
@@ -181,11 +181,11 @@ end subroutine
 ! alters ::    res stores the deltas corresponding to the array before the pool
 !-------------------------------------------------------------------------------
 subroutine pool_back_prop(this, delta, batch_item, res)
-    class(PoolLayer)    :: this
-    real, intent(in)    :: delta(:,:,:)
-    integer, intent(in) :: batch_item
-    real, allocatable   :: res(:,:,:,:)
-    integer             :: row, col, chan, max_r, max_c
+    class(PoolLayer)          :: this
+    real(kind=8), intent(in)  :: delta(:,:,:)
+    integer, intent(in)       :: batch_item
+    real(kind=8), allocatable :: res(:,:,:,:)
+    integer                   :: row, col, chan, max_r, max_c
 
     if (.not. all(shape(delta) == [this%out_rows, this%out_cols, &
                                    this%out_channels])) then

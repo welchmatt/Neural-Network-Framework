@@ -53,13 +53,13 @@ type :: ConvLayer
     class(PoolLayer), pointer :: next_pool
     character(len=20)         :: pad, activ
     ! dimension order: (rows, columns, channels, batches or kernel items)
-    real, allocatable         :: k(:,:,:,:), & ! kernels
+    real(kind=8), allocatable :: k(:,:,:,:), & ! kernels
                                  b(:,:,:),   & ! biases
                                  z(:,:,:,:), & ! weighted inputs
                                  a(:,:,:,:), & ! activations
                                  d(:,:,:,:), & ! deltas (errors)
                                  drop(:,:,:,:) ! dropout inputs (0=drop, 1=keep)
-    real                      :: drop_rate     ! % of input nodes to drop
+    real(kind=8)              :: drop_rate     ! % of input nodes to drop
 contains
     ! procedures that traverse through linked list of ConvLayers
     procedure, pass           :: conv_init, conv_add_pool_layer, &
@@ -91,12 +91,12 @@ contains
 !-------------------------------------------------------------------------------
 function create_conv_layer(input_dims, kernels, kernel_dims, stride, &
                            activ, padding, drop_rate)
-    class(ConvLayer), pointer  :: create_conv_layer
-    integer, intent(in)        :: input_dims(3), kernels, kernel_dims(2), &
+    class(ConvLayer), pointer :: create_conv_layer
+    integer, intent(in)       :: input_dims(3), kernels, kernel_dims(2), &
                                   stride(2)
-    character(*), intent(in)   :: activ, padding
-    real, intent(in)           :: drop_rate
-    integer                    :: pad_rows, final_rows, pad_cols, final_cols
+    character(*), intent(in)  :: activ, padding
+    real(kind=8), intent(in)  :: drop_rate
+    integer                   :: pad_rows, final_rows, pad_cols, final_cols
 
     if (.not. (padding == 'valid' .or. &
                padding == 'same' .or. &
@@ -257,11 +257,11 @@ end subroutine
 ! alters :: this ConvLayer's z and a are calculated
 !-------------------------------------------------------------------------------
 subroutine conv_forw_prop(this, input0, is_train)
-    class(ConvLayer)    :: this
-    real, intent(in)    :: input0(:,:,:,:)
-    logical, intent(in) :: is_train
-    real, allocatable   :: input(:,:,:,:), z_slice(:,:,:)
-    integer             :: i
+    class(ConvLayer)          :: this
+    real(kind=8), intent(in)  :: input0(:,:,:,:)
+    logical, intent(in)       :: is_train
+    real(kind=8), allocatable :: input(:,:,:,:), z_slice(:,:,:)
+    integer                   :: i
 
     if (this%drop_rate > 0 .and. is_train) then
         call this%conv_dropout_rand() ! randomize dropout
@@ -314,9 +314,9 @@ end subroutine
 ! alters :: this ConvLayer's d is calculated
 !-------------------------------------------------------------------------------
 subroutine conv_back_prop(this)
-    class(ConvLayer)  :: this
-    real, allocatable :: d_slice(:,:,:)
-    integer           :: i
+    class(ConvLayer)          :: this
+    real(kind=8), allocatable :: d_slice(:,:,:)
+    integer                   :: i
 
     if (.not. associated(this%next_layer)) then
         print *, '-------------------------------------------'
@@ -371,13 +371,14 @@ end subroutine
 ! alters ::   this ConvLayer's kernels and biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
 subroutine conv_update(this, input0, learn_rate, is_train)
-    class(ConvLayer)    :: this
-    real, intent(in)    :: input0(:,:,:,:), learn_rate
-    logical, intent(in) :: is_train
-    real, allocatable   :: input(:,:,:,:), total_k_change(:,:,:,:), &
-                           k_change(:,:,:,:), chan_avgs(:,:,:), chan_biases(:)
-    real                :: scale
-    integer             :: i
+    class(ConvLayer)          :: this
+    real(kind=8), intent(in)  :: input0(:,:,:,:), learn_rate
+    logical, intent(in)       :: is_train
+    real(kind=8), allocatable :: input(:,:,:,:), total_k_change(:,:,:,:), &
+                                 k_change(:,:,:,:), chan_avgs(:,:,:), &
+                                 chan_biases(:)
+    real(kind=8)              :: scale
+    integer                   :: i
 
     if (this%drop_rate > 0 .and. is_train) then
         call this%conv_dropout_rand() ! randomize dropout

@@ -42,13 +42,13 @@ type :: DenseLayer
     integer                    :: in_nodes, out_nodes, batch_size
     class(DenseLayer), pointer :: prev_layer, next_layer
     character(len=20)          :: activ
-    real, allocatable          :: w(:,:), & ! weights
+    real(kind=8), allocatable  :: w(:,:), & ! weights
                                   b(:,:), & ! biases
                                   z(:,:), & ! weighted inputs
                                   a(:,:), & ! activations
                                   d(:,:), & ! deltas (errors),
                                   drop(:,:) ! dropout inputs (0=drop, 1=keep)
-    real                       :: drop_rate ! % of input nodes to drop
+    real(kind=8)               :: drop_rate ! % of input nodes to drop
 contains
     ! procedures that traverse through linked list of DenseLayers
     procedure, pass            :: dense_init, dense_update, &
@@ -75,7 +75,7 @@ function create_dense_layer(in_nodes, out_nodes, activ, drop_rate)
     class(DenseLayer), pointer :: create_dense_layer
     integer, intent(in)        :: in_nodes, out_nodes
     character(*), intent(in)   :: activ
-    real, intent(in)           :: drop_rate
+    real(kind=8), intent(in)   :: drop_rate
 
     allocate(create_dense_layer)
     create_dense_layer%in_nodes   =  in_nodes
@@ -169,17 +169,19 @@ end subroutine
 ! alters :: this DenseLayer's z and a are calculated
 !-------------------------------------------------------------------------------
 subroutine dense_forw_prop(this, input, is_train)
-    class(DenseLayer)   :: this
-    real, intent(in)    :: input(:,:)
-    logical, intent(in) :: is_train
+    class(DenseLayer)        :: this
+    real(kind=8), intent(in) :: input(:,:)
+    logical, intent(in)      :: is_train
 
     ! z(l) = matmul(a(l-1), w(l)) + b(l); first handle dropout
     if (this%drop_rate > 0 .and. is_train) then
         call this%dense_dropout_rand() ! randomize dropout
-        this%z = matmul(input*this%drop, this%w) + this%b
+        call dgemm_wrapper(input*this%drop, this%w, this%z)
     else
-        this%z = matmul(input, this%w) + this%b ! no drops
+        call dgemm_wrapper(input, this%w, this%z) ! no drops
     end if
+
+    this%z = this%z + this%b
 
     ! apply activation and traverse next layers (if this is not output layer);
     ! output layer has different activation function usage
@@ -220,8 +222,10 @@ subroutine dense_back_prop(this)
 
     ! deltas for this layer in terms of next layer deltas:
     ! delta(l) = matmul(delta(l+1), transpose(w(l+1))) * activ_deriv(z(l))
-    this%d = matmul(this%next_layer%d, transpose(this%next_layer%w)) * &
-             activfunc_deriv(this%z, this%activ)
+    call dgemm_wrapper(this%next_layer%d, this%next_layer%w, this%d, &
+                       transb = .true.)
+
+    this%d = this%d * activfunc_deriv(this%z, this%activ)
 
     ! traverse previous layers
     if (associated(this%prev_layer)) then
@@ -240,12 +244,12 @@ end subroutine
 ! alters ::   this DenseLayer's weights and biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
 subroutine dense_update(this, input, learn_rate, is_train)
-    class(DenseLayer)   :: this
-    real, intent(in)    :: input(:,:), learn_rate
-    logical, intent(in) :: is_train
-    real, allocatable   :: avg_change_row(:)
-    real                :: scale
-    integer             :: r
+    class(DenseLayer)         :: this
+    real(kind=8), intent(in)  :: input(:,:), learn_rate
+    logical, intent(in)       :: is_train
+    real(kind=8), allocatable :: avg_change_row(:), delta_w(:,:)
+    real(kind=8)              :: scale
+    integer                   :: r
 
     ! multiply by learn_rate, then average across all examples in batch
     scale = learn_rate / this%batch_size
@@ -255,10 +259,13 @@ subroutine dense_update(this, input, learn_rate, is_train)
     ! avg_change = matmul(transpose(a(l-1)), delta(l)) * scale
     if (this%drop_rate > 0 .and. is_train) then
         call this%dense_dropout_rand() ! randomize dropout
-        this%w = this%w - matmul(transpose(input*this%drop), this%d) * scale
+        call dgemm_wrapper(input*this%drop, this%d, delta_w, transa = .true.)
     else
-        this%w = this%w - matmul(transpose(input), this%d) * scale ! no drops
+        call dgemm_wrapper(input, this%d, delta_w, transa = .true.) ! no drops
     end if
+
+    delta_w = delta_w * scale
+    this%w = this%w - delta_w
 
     ! biases:
     ! each row in the deltas corresponds to one example
@@ -267,9 +274,15 @@ subroutine dense_update(this, input, learn_rate, is_train)
     ! in the batch (the vector of col-averages across the batch)
     !
     ! b = (each row of b) - avg_change_row
-    ! avg_change_row = col_sums(delta(l)) * scale
+    ! avg_change_row = col_sums(delta(l)) * scale;
+    !
+    ! unfortunately, this specific location gives an -Wuninitialized warning,
+    ! but this behavior is defined in the allocatable standard (and used
+    ! throughout the rest of this code with no warnings).
+    ! copy/pasting this line to each of the if/else branches above removes the
+    ! warning, but I think makes the code more convoluted...
     avg_change_row = sum(this%d, dim=1) * scale ! dim=1 finds col sums
-
+    
     ! update each row of b
     do r = 1, this%batch_size
         this%b(r,:) = this%b(r,:) - avg_change_row

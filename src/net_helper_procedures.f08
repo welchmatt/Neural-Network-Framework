@@ -22,13 +22,77 @@ contains
 ! appends to file at filepath if it exists, otherwise creates new file;
 ! filepath should be relative to overall project folder with executable
 !-------------------------------------------------------------------------------
+! a:        (real(:,:))
+! b:        (real(:,:))
+! c:        (real(:,:)) resulting array
+!
+! transa    (optional - logical) transpose a before multiplication
+! transb    (optional - logical) transpose b before multiplication
+!-------------------------------------------------------------------------------
+! alters :: result of matmul(a, b) stored in c
+!-------------------------------------------------------------------------------
+subroutine dgemm_wrapper(a, b, c, transa, transb)
+    real(kind=8), intent(in)      :: a(:,:), b(:,:)
+    real(kind=8), allocatable     :: c(:,:)
+    logical, intent(in), optional :: transa, transb
+    integer                       :: m, n, k, lda, ldb, ldc
+    character(len=1)              :: a_t, b_t
+
+    lda = size(a, dim=1)
+    ldb = size(b, dim=1)
+
+    ! adjust variables for transpose a
+    if (present(transa) .and. (transa .eqv. .true.)) then
+        a_t = 't'
+        m   = size(a, dim=2)
+        k   = size(a, dim=1)
+    else
+        a_t = 'n'
+        m   = size(a, dim=1)
+        k   = size(a, dim=2)
+    end if
+
+    ! adjust variables for transpose b
+    if (present(transb) .and. (transb .eqv. .true.)) then
+        b_t = 't'
+        n   = size(b, dim=1)
+    else
+        b_t = 'n'
+        n   = size(b, dim=2)
+    end if
+
+    ! create new array if not correct size
+    if (allocated(c)) then
+        if (.not. all(shape(c) == [m,n])) then
+            deallocate(c)
+        end if
+    end if
+
+    if (.not. allocated(c)) then
+        allocate(c(m, n))
+    end if
+
+    c = 0
+    ldc = m
+
+    ! matrix multiplication: c = 1*a * b + 0*c = a * b;
+    ! (d in 1d0 and 0d0 means double precision)
+    call DGEMM(a_t, b_t, m, n, k, 1d0, a, lda, b, ldb, 0d0, c, ldc)
+end subroutine
+
+!-------------------------------------------------------------------------------
+! write 2D array as CSV-formatted row appended to given file, row-major order;
+! 
+! appends to file at filepath if it exists, otherwise creates new file;
+! filepath should be relative to overall project folder with executable
+!-------------------------------------------------------------------------------
 ! a:        (real(:,:)) array to write
 ! filepath: (characters) desired full path with filename
 !-------------------------------------------------------------------------------
 ! alters :: filepath has values of a appended as CSV-formatted row
 !-------------------------------------------------------------------------------
 subroutine write_array_2D(a, filepath)
-    real, intent(in)              :: a(:,:)
+    real(kind=8), intent(in)      :: a(:,:)
     character(*), intent(in)      :: filepath
     integer                       :: ios, r, c, rows, cols
     character(len=30)             :: val
@@ -75,8 +139,8 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function sigmoid(z)
-    real, intent(in) :: z
+elemental real(kind=8) function sigmoid(z)
+    real(kind=8), intent(in) :: z
     sigmoid = exp(z) / (exp(z) + 1)
 end function
 
@@ -87,8 +151,8 @@ end function
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function sigmoid_deriv(z)
-    real, intent(in) :: z
+elemental real(kind=8) function sigmoid_deriv(z)
+    real(kind=8), intent(in) :: z
     sigmoid_deriv = exp(z) / (exp(z) + 1)**2
 end function
 
@@ -99,8 +163,8 @@ end function
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function relu(z)
-    real, intent(in) :: z
+elemental real(kind=8) function relu(z)
+    real(kind=8), intent(in) :: z
     if (z >= 0) then
         relu = z
     else
@@ -115,8 +179,8 @@ end function
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function relu_deriv(z)
-    real, intent(in) :: z
+elemental real(kind=8) function relu_deriv(z)
+    real(kind=8), intent(in) :: z
     if (z > 0) then
         relu_deriv = 1
     else
@@ -131,8 +195,8 @@ end function
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function leaky_relu(z)
-    real, intent(in) :: z
+elemental real(kind=8) function leaky_relu(z)
+    real(kind=8), intent(in) :: z
     if (z > 0) then
         leaky_relu = z
     else
@@ -147,8 +211,8 @@ end function
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function leaky_relu_deriv(z)
-    real, intent(in) :: z
+elemental real(kind=8) function leaky_relu_deriv(z)
+    real(kind=8), intent(in) :: z
     if (z > 0) then
         leaky_relu_deriv = 1
     else
@@ -163,8 +227,8 @@ end function
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function elu(z)
-    real, intent(in) :: z
+elemental real(kind=8) function elu(z)
+    real(kind=8), intent(in) :: z
     if (z > 0) then
         elu = z
     else
@@ -179,8 +243,8 @@ end function
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function elu_deriv(z)
-    real, intent(in) :: z
+elemental real(kind=8) function elu_deriv(z)
+    real(kind=8), intent(in) :: z
     if (z > 0) then
         elu_deriv = 1
     else
@@ -196,8 +260,8 @@ end function
 ! alters :: softmax occurs in-place on input a
 !-------------------------------------------------------------------------------
 subroutine softmax(z)
-    real    :: z(:,:)
-    integer :: r
+    real(kind=8) :: z(:,:)
+    integer      :: r
     z = exp(z)
     do r = 1, size(z, dim=1)
         ! vals in each row / sum of that row
@@ -215,8 +279,8 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function activfunc(z, activ)
-    real, intent(in)         :: z
+elemental real(kind=8) function activfunc(z, activ)
+    real(kind=8), intent(in) :: z
     character(*), intent(in) :: activ
 
     select case(activ)
@@ -243,8 +307,8 @@ end function
 !-------------------------------------------------------------------------------
 ! returns :: (real)
 !-------------------------------------------------------------------------------
-elemental real function activfunc_deriv(z, activ)
-    real, intent(in)         :: z
+elemental real(kind=8) function activfunc_deriv(z, activ)
+    real(kind=8), intent(in) :: z
     character(*), intent(in) :: activ
 
     select case(activ)
@@ -273,10 +337,10 @@ end function
 ! alters ::  res becomes activation applied to z
 !-------------------------------------------------------------------------------
 subroutine out_activfunc_2D(z, out_activ, res)
-    real                     :: z(:,:)
-    character(*), intent(in) :: out_activ
-    real, allocatable        :: res(:,:)
-    integer                  :: z_rows, z_cols
+    real(kind=8)              :: z(:,:)
+    character(*), intent(in)  :: out_activ
+    real(kind=8), allocatable :: res(:,:)
+    integer                   :: z_rows, z_cols
 
     z_rows = size(z, dim=1)
     z_cols = size(z, dim=2)
@@ -326,8 +390,8 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function mse_func_2D(preds, targets)
-    real, intent(in) :: preds(:,:), targets(:,:)
+real(kind=8) function mse_func_2D(preds, targets)
+    real(kind=8), intent(in) :: preds(:,:), targets(:,:)
     mse_func_2D = sum((preds - targets) ** 2) / (2 * size(preds, dim=1))
 end function
 
@@ -339,8 +403,8 @@ end function
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function mse_func_4D(preds, targets)
-    real, intent(in) :: preds(:,:,:,:), targets(:,:,:,:)
+real(kind=8) function mse_func_4D(preds, targets)
+    real(kind=8), intent(in) :: preds(:,:,:,:), targets(:,:,:,:)
     mse_func_4D = sum((preds - targets) ** 2) / (2 * size(preds, dim=1))
 end function
 
@@ -352,8 +416,8 @@ end function
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function cross_entropy_func_2D(preds, targets)
-    real, intent(in) :: preds(:,:), targets(:,:)
+real(kind=8) function cross_entropy_func_2D(preds, targets)
+    real(kind=8), intent(in) :: preds(:,:), targets(:,:)
     cross_entropy_func_2D = -sum(targets * log(preds)) / size(preds, dim=1)
 end function
 
@@ -365,9 +429,9 @@ end function
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function one_hot_accuracy_2D(preds, targets)
-    real, intent(in) :: preds(:,:), targets(:,:)
-    real             :: correct
+real(kind=8) function one_hot_accuracy_2D(preds, targets)
+    real(kind=8), intent(in) :: preds(:,:), targets(:,:)
+    real(kind=8)             :: correct
 
     ! correct where strongest predictions match one-hot targets
     correct = count(maxloc(preds, dim=2) == maxloc(targets, dim=2))
@@ -383,8 +447,8 @@ end function
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function lossfunc_2D(preds, targets, loss)
-    real, intent(in)         :: preds(:,:), targets(:,:)
+real(kind=8) function lossfunc_2D(preds, targets, loss)
+    real(kind=8), intent(in) :: preds(:,:), targets(:,:)
     character(*), intent(in) :: loss
 
     select case(loss)
@@ -411,8 +475,8 @@ end function
 !-------------------------------------------------------------------------------
 ! returns ::  (real)
 !-------------------------------------------------------------------------------
-real function lossfunc_4D(preds, targets, loss)
-    real, intent(in)         :: preds(:,:,:,:), targets(:,:,:,:)
+real(kind=8) function lossfunc_4D(preds, targets, loss)
+    real(kind=8), intent(in) :: preds(:,:,:,:), targets(:,:,:,:)
     character(*), intent(in) :: loss
 
     select case(loss)
@@ -441,9 +505,9 @@ end function
 ! alters ::  rows of a and b are shuffled (correspondingly) in-place
 !-------------------------------------------------------------------------------
 subroutine pair_shuffle_2D_2D(a, b)
-    real              :: a(:,:), b(:,:), randn
-    real, allocatable :: row(:)
-    integer           :: i, j
+    real(kind=8)              :: a(:,:), b(:,:), randn
+    real(kind=8), allocatable :: row(:)
+    integer                   :: i, j
 
     ! loop through rows from high to low indices
     do i = size(a, dim=1), 2, -1
@@ -482,9 +546,9 @@ end subroutine
 ! alters :: a and b shuffled (correspondingly) in-place
 !-------------------------------------------------------------------------------
 subroutine pair_shuffle_4D_2D(a, b)
-    real              :: a(:,:,:,:), b(:,:), randn
-    real, allocatable :: channel(:,:,:), row(:)
-    integer           :: i, j
+    real(kind=8)              :: a(:,:,:,:), b(:,:), randn
+    real(kind=8), allocatable :: channel(:,:,:), row(:)
+    integer                   :: i, j
 
     ! loop through channels from high to low indices
     do i = size(a, dim=4), 2, -1
@@ -521,9 +585,9 @@ end subroutine
 ! alters ::  a and b images shuffled (correspondingly) in-place
 !-------------------------------------------------------------------------------
 subroutine pair_shuffle_4D_4D(a, b)
-    real              :: a(:,:,:,:), b(:,:,:,:), randn
-    real, allocatable :: channel(:,:,:)
-    integer           :: i, j
+    real(kind=8)              :: a(:,:,:,:), b(:,:,:,:), randn
+    real(kind=8), allocatable :: channel(:,:,:)
+    integer                   :: i, j
 
     ! loop through channels from high to low indices
     do i = size(a, dim=4), 2, -1
@@ -564,11 +628,11 @@ end subroutine
 ! alters :: res becomes one-hot encoding of a
 !-------------------------------------------------------------------------------
 subroutine one_hot_encode_special(a, classes, res)
-    real, intent(in)    :: a(:)
-    integer, intent(in) :: classes
-    real, allocatable   :: res(:,:)
-    integer             :: row, col
-    integer(kind=4)     :: val ! to help cast 8-bit double to 4-bit integer
+    real(kind=8), intent(in)  :: a(:)
+    integer, intent(in)       :: classes
+    real(kind=8), allocatable :: res(:,:)
+    integer                   :: row, col
+    integer(kind=4)           :: val ! help cast 8-bit double to 4-bit integer
 
     ! create new array if not correct size
     if (allocated(res)) then
@@ -654,12 +718,12 @@ end function
 ! alters ::    res becomes result of padding a around its (height, width)
 !-------------------------------------------------------------------------------
 subroutine pad_2D(a, padding, kernel_dims, stride, res)
-    real, intent(in)         :: a(:,:)
-    integer, intent(in)      :: kernel_dims(2), stride(2)
-    character(*), intent(in) :: padding
-    real, allocatable        :: res(:,:)
-    integer                  :: a_rows, a_cols, row_pad, col_pad, top_pad, &
-                                left_pad
+    real(kind=8), intent(in)  :: a(:,:)
+    integer, intent(in)       :: kernel_dims(2), stride(2)
+    character(*), intent(in)  :: padding
+    real(kind=8), allocatable :: res(:,:)
+    integer                   :: a_rows, a_cols, row_pad, col_pad, top_pad, &
+                                 left_pad
 
     a_rows = size(a, dim=1)
     a_cols = size(a, dim=2)
@@ -700,12 +764,12 @@ end subroutine
 ! alters ::    res becomes result of padding a around its (height, width)
 !-------------------------------------------------------------------------------
 subroutine pad_3D(a, padding, kernel_dims, stride, res)
-    real, intent(in)         :: a(:,:,:)
-    integer, intent(in)      :: kernel_dims(2), stride(2)
-    character(*), intent(in) :: padding
-    real, allocatable        :: res(:,:,:)
-    integer                  :: a_rows, a_cols, a_channels, row_pad, col_pad, &
-                                top_pad, left_pad
+    real(kind=8), intent(in)  :: a(:,:,:)
+    integer, intent(in)       :: kernel_dims(2), stride(2)
+    character(*), intent(in)  :: padding
+    real(kind=8), allocatable :: res(:,:,:)
+    integer                   :: a_rows, a_cols, a_channels, row_pad, col_pad, &
+                                 top_pad, left_pad
 
     a_rows     = size(a, dim=1)
     a_cols     = size(a, dim=2)
@@ -755,10 +819,10 @@ end subroutine
 ! alters :: res becomes result of expanding a with stride
 !-------------------------------------------------------------------------------
 subroutine expand_with_stride_3D(a, stride, res)
-    real, intent(in)    :: a(:,:,:)
-    integer, intent(in) :: stride(2)
-    real, allocatable   :: res(:,:,:)
-    integer             :: rows, cols, channels, res_rows, res_cols, r, c
+    real(kind=8), intent(in)  :: a(:,:,:)
+    integer, intent(in)       :: stride(2)
+    real(kind=8), allocatable :: res(:,:,:)
+    integer                   :: rows, cols, channels, res_rows, res_cols, r, c
 
     if (stride(1) == 1 .and. stride(2) == 1) then
         res = a ! no striding to do
@@ -804,14 +868,13 @@ end subroutine
 ! alters :: res becomes cross-correlation result
 !-------------------------------------------------------------------------------
 subroutine cross_correlate_2D(a, padding, kernel, stride, res)
-    real, intent(in)         :: a(:,:), kernel(:,:)
-    character(*), intent(in) :: padding
-    integer, intent(in)      :: stride(2)
-    real, allocatable        :: res(:,:)
-    real, allocatable        :: padded(:,:)
-    integer                  :: a_rows, a_cols, k_rows, k_cols, &
-                                padded_rows, padded_cols, &
-                                res_rows, res_cols, r, c, kr, kc
+    real(kind=8), intent(in)  :: a(:,:), kernel(:,:)
+    character(*), intent(in)  :: padding
+    integer, intent(in)       :: stride(2)
+    real(kind=8), allocatable :: res(:,:), padded(:,:)
+    integer                   :: a_rows, a_cols, k_rows, k_cols, &
+                                 padded_rows, padded_cols, &
+                                 res_rows, res_cols, r, c, kr, kc
 
     a_rows = size(a, dim=1)
     a_cols = size(a, dim=2)
@@ -872,14 +935,14 @@ end subroutine
 ! alters :: res becomes cross-correlation result
 !-------------------------------------------------------------------------------
 subroutine cross_correlate_3D(a, padding, kernel, stride, res)
-    real, intent(in)         :: a(:,:,:), kernel(:,:,:)
-    character(*), intent(in) :: padding
-    integer, intent(in)      :: stride(2)
-    real, allocatable        :: res(:,:), padded(:,:,:)
-    integer                  :: a_rows, a_cols, a_channels, &
-                                k_rows, k_cols, k_channels, &
-                                padded_rows, padded_cols, &
-                                res_rows, res_cols, r, c, kr, kc, kd
+    real(kind=8), intent(in)  :: a(:,:,:), kernel(:,:,:)
+    character(*), intent(in)  :: padding
+    integer, intent(in)       :: stride(2)
+    real(kind=8), allocatable :: res(:,:), padded(:,:,:)
+    integer                   :: a_rows, a_cols, a_channels, &
+                                 k_rows, k_cols, k_channels, &
+                                 padded_rows, padded_cols, &
+                                 res_rows, res_cols, r, c, kr, kc, kd
 
     a_rows     = size(a, dim=1)
     a_cols     = size(a, dim=2)
@@ -951,12 +1014,11 @@ end subroutine
 ! alters :: res becomes convolution result
 !-------------------------------------------------------------------------------
 subroutine convolve_2D(a, padding, kernel, stride, res)
-    real, intent(in)         :: a(:,:), kernel(:,:)
-    character(*), intent(in) :: padding
-    integer, intent(in)      :: stride(2)
-    real, allocatable        :: res(:,:)
-    real, allocatable        :: rot_kernel(:,:)
-    integer                  :: rows, cols, c
+    real(kind=8), intent(in)  :: a(:,:), kernel(:,:)
+    character(*), intent(in)  :: padding
+    integer, intent(in)       :: stride(2)
+    real(kind=8), allocatable :: res(:,:), rot_kernel(:,:)
+    integer                   :: rows, cols, c
 
     rows = size(kernel, dim=1)
     cols = size(kernel, dim=2)
@@ -985,11 +1047,11 @@ end subroutine
 ! alters :: res becomes convolution result
 !-------------------------------------------------------------------------------
 subroutine convolve_3D(a, padding, kernel, stride, res)
-    real, intent(in)         :: a(:,:,:), kernel(:,:,:)
-    character(*), intent(in) :: padding
-    integer, intent(in)      :: stride(2)
-    real, allocatable        :: res(:,:), rot_kernel(:,:,:)
-    integer                  :: rows, cols, chans, c
+    real(kind=8), intent(in)  :: a(:,:,:), kernel(:,:,:)
+    character(*), intent(in)  :: padding
+    integer, intent(in)       :: stride(2)
+    real(kind=8), allocatable :: res(:,:), rot_kernel(:,:,:)
+    integer                   :: rows, cols, chans, c
 
     rows  = size(kernel, dim=1)
     cols  = size(kernel, dim=2)
@@ -1021,11 +1083,11 @@ end subroutine
 ! alters :: res becomes 3D stack of cross-correlations (kernel count depth)
 !-------------------------------------------------------------------------------
 subroutine cross_correlate_3D_kernels(a, padding, kernels, stride, res)
-    real, intent(in)         :: a(:,:,:), kernels(:,:,:,:)
-    character(*), intent(in) :: padding
-    integer, intent(in)      :: stride(2)
-    real, allocatable        :: res(:,:,:), res_channel(:,:)
-    integer                  :: k_count, k
+    real(kind=8), intent(in)  :: a(:,:,:), kernels(:,:,:,:)
+    character(*), intent(in)  :: padding
+    integer, intent(in)       :: stride(2)
+    real(kind=8), allocatable :: res(:,:,:), res_channel(:,:)
+    integer                   :: k_count, k
 
     k_count = size(kernels, dim=4)
 
@@ -1066,11 +1128,11 @@ end subroutine
 ! alters :: res becomes 3D stack of transpose-convolutions (kernel count depth)
 !-------------------------------------------------------------------------------
 subroutine transpose_convolve_3D_kernels(a, padding, kernels, stride, res)
-    real, intent(in)         :: a(:,:,:), kernels(:,:,:,:)
-    character(*), intent(in) :: padding
-    integer, intent(in)      :: stride(2)
-    real, allocatable        :: res(:,:,:), res_channel(:,:)
-    integer                  :: k_count, k
+    real(kind=8), intent(in)  :: a(:,:,:), kernels(:,:,:,:)
+    character(*), intent(in)  :: padding
+    integer, intent(in)       :: stride(2)
+    real(kind=8), allocatable :: res(:,:,:), res_channel(:,:)
+    integer                   :: k_count, k
 
     if (padding /= 'full') then
         print *, '-------------------------------------------------------'
@@ -1124,11 +1186,11 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine cross_correlate_3D_perms_group_kernel(a, padding, kernel, stride, &
                                                  exp_side, res)
-    real, intent(in)                   :: a(:,:,:), kernel(:,:,:)
+    real(kind=8), intent(in)           :: a(:,:,:), kernel(:,:,:)
     character(*), intent(in)           :: padding
     integer, intent(in)                :: stride(2)
     character(*), intent(in), optional :: exp_side
-    real, allocatable                  :: res(:,:,:,:), res_channel(:,:), &
+    real(kind=8), allocatable          :: res(:,:,:,:), res_channel(:,:), &
                                           exp_a(:,:,:), exp_k(:,:,:)
     integer                            :: a_channels, k_channels, a_i, k_i
 
@@ -1199,11 +1261,11 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine cross_correlate_3D_perms_group_base(a, padding, kernel, stride, &
                                                exp_side, res)
-    real, intent(in)                   :: a(:,:,:), kernel(:,:,:)
+    real(kind=8), intent(in)           :: a(:,:,:), kernel(:,:,:)
     character(*), intent(in)           :: padding
     integer, intent(in)                :: stride(2)
     character(*), intent(in), optional :: exp_side
-    real, allocatable                  :: res(:,:,:,:), res_channel(:,:), &
+    real(kind=8), allocatable          :: res(:,:,:,:), res_channel(:,:), &
                                           exp_a(:,:,:), exp_k(:,:,:)
     integer                            :: a_channels, k_channels, a_i, k_i
 
@@ -1281,14 +1343,14 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine transpose_convolve_3D_perms_sum_kernel(a, padding, kernels, &
                                                   stride, res)
-    real, intent(in)         :: a(:,:,:), kernels(:,:,:,:)
-    character(*), intent(in) :: padding
-    integer, intent(in)      :: stride(2)
-    real, allocatable        :: res(:,:,:), res_channel(:,:), exp_a(:,:,:), &
-                                unpad_channel(:,:)
-    integer                  :: a_rows, a_cols, a_channels, k_channels, &
-                                res_row_pad, res_col_pad, top_pad, left_pad, &
-                                a_i, k_i
+    real(kind=8), intent(in)  :: a(:,:,:), kernels(:,:,:,:)
+    character(*), intent(in)  :: padding
+    integer, intent(in)       :: stride(2)
+    real(kind=8), allocatable :: res(:,:,:), res_channel(:,:), exp_a(:,:,:), &
+                                 unpad_channel(:,:)
+    integer                   :: a_rows, a_cols, a_channels, k_channels, &
+                                 res_row_pad, res_col_pad, top_pad, left_pad, &
+                                 a_i, k_i
 
     a_rows     = size(a, dim=1)
     a_cols     = size(a, dim=2)
@@ -1363,11 +1425,12 @@ end subroutine
 ! alters :: res becomes cross-correlation permutation result, sum by kernel
 !-------------------------------------------------------------------------------
 subroutine cross_correlate_3D_perms_sum_kernel(a, padding, kernels, stride, res)
-    real, intent(in)         :: a(:,:,:), kernels(:,:,:,:)
-    character(*), intent(in) :: padding
-    integer, intent(in)      :: stride(2)
-    real, allocatable        :: res(:,:,:), res_channel(:,:), exp_a(:,:,:)
-    integer                  :: a_rows, a_cols, a_channels, k_channels, a_i, k_i
+    real(kind=8), intent(in)  :: a(:,:,:), kernels(:,:,:,:)
+    character(*), intent(in)  :: padding
+    integer, intent(in)       :: stride(2)
+    real(kind=8), allocatable :: res(:,:,:), res_channel(:,:), exp_a(:,:,:)
+    integer                   :: a_rows, a_cols, a_channels, k_channels, &
+                                 a_i, k_i
 
     if (padding /= 'full') then
         print *, '-------------------------------------------------------'
@@ -1433,14 +1496,14 @@ end subroutine
 !             -1 where max value is in padding, not original array
 !-------------------------------------------------------------------------------
 subroutine max_pool_2D(a, padding, kernel_dims, stride, res, res_idxs)
-    real, intent(in)         :: a(:,:)
-    character(*), intent(in) :: padding
-    integer, intent(in)      :: kernel_dims(2), stride(2)
-    real, allocatable        :: res(:,:), padded(:,:)
-    integer, allocatable     :: res_idxs(:,:,:)
-    integer                  :: max_idx(2), a_rows, a_cols, k_rows, k_cols, &
-                                padded_rows, padded_cols, top_pad, left_pad, &
-                                res_rows, res_cols, r, c
+    real(kind=8), intent(in)  :: a(:,:)
+    character(*), intent(in)  :: padding
+    integer, intent(in)       :: kernel_dims(2), stride(2)
+    real(kind=8), allocatable :: res(:,:), padded(:,:)
+    integer, allocatable      :: res_idxs(:,:,:)
+    integer                   :: max_idx(2), a_rows, a_cols, k_rows, k_cols, &
+                                 padded_rows, padded_cols, top_pad, left_pad, &
+                                 res_rows, res_cols, r, c
 
     a_rows = size(a, dim=1)
     a_cols = size(a, dim=2)
@@ -1530,12 +1593,12 @@ end subroutine
 !               -1 where max value in padding, not original array
 !-------------------------------------------------------------------------------
 subroutine max_pool_3D(a, padding, kernel_dims, stride, res, res_idxs)
-    real, intent(in)         :: a(:,:,:)
-    character(*), intent(in) :: padding
-    integer, intent(in)      :: kernel_dims(2), stride(2)
-    real, allocatable        :: res_channel(:,:), res(:,:,:)
-    integer, allocatable     :: channel_idxs(:,:,:), res_idxs(:,:,:,:)
-    integer                  :: k, a_channels
+    real(kind=8), intent(in)  :: a(:,:,:)
+    character(*), intent(in)  :: padding
+    integer, intent(in)       :: kernel_dims(2), stride(2)
+    real(kind=8), allocatable :: res_channel(:,:), res(:,:,:)
+    integer, allocatable      :: channel_idxs(:,:,:), res_idxs(:,:,:,:)
+    integer                   :: k, a_channels
 
     a_channels = size(a, dim=3)
 

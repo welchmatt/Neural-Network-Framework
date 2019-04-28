@@ -8,7 +8,7 @@
 #-------------------------------------------------------------------------------
 
 FC = gfortran-8
-FFLAGS = -Wall -Wextra -O3
+FFLAGS = -O3
 
 # uncomment FFLAGS below for debugging (overrides FFLAGS above)
 # FFLAGS = -Wall -Wextra -fsanitize=undefined -fsanitize=address -O3
@@ -17,13 +17,19 @@ FFLAGS = -Wall -Wextra -O3
 # gprof EXECUTABLE_NAME gmon.out > profile.txt
 # FFLAGS = -Wall -Wextra -pg -O3
 
+# uncomment to ignore warning from comparing reals, which occurs in BLAS;
+# be sure to first run your code with this commented, to ensure your non-BLAS
+# code does not have this warning
+# FFLAGS += -Wno-compare-reals
+
 # directory structure; put all source files in src
 SDIR = src
 ODIR = obj
 MDIR = mod
 
 # framework source files; must specify dependency order in Fortran
-BASE_DEPS = net_helper_procedures.f08 \
+BASE_DEPS = lsame.f xerbla.f dgemm.f \
+			net_helper_procedures.f08 \
 			pool_layer_definitions.f08 \
 			dense_layer_definitions.f08 conv_layer_definitions.f08 \
 			dense_neural_net.f08 conv_neural_net.f08 \

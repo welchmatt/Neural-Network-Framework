@@ -28,13 +28,14 @@ program main
     implicit none
 
     class(SeqNN), pointer :: snn
-    real, allocatable     :: image(:,:,:), train_images(:,:,:,:), &
-                             test_images(:,:,:,:), train(:,:), test(:,:), &
-                             train_x(:,:), train_y(:), test_x(:,:), test_y(:), &
-                             train_y_onehot(:,:), test_y_onehot(:,:)
-    integer               :: train_rows, test_rows, variables, classes, &
-                             pixels, row, i
-    real                  :: accuracy
+    real(kind=8), allocatable :: image(:,:,:), train_images(:,:,:,:), &
+                                 test_images(:,:,:,:), train(:,:), test(:,:), &
+                                 train_x(:,:), train_y(:), &
+                                 test_x(:,:), test_y(:), &
+                                 train_y_onehot(:,:), test_y_onehot(:,:)
+    integer                   :: train_rows, test_rows, variables, classes, &
+                                 pixels, row, i
+    real(kind=8)              :: accuracy
 
     train_rows = 60000
     test_rows = 10000
@@ -175,11 +176,11 @@ program main
 
     call snn%snn_add_dense_layer(out_nodes  = 128, &
                                  activ      = 'relu', &
-                                 drop_rate  = 0.25)
+                                 drop_rate  = 0d25) ! d for double precision
 
     call snn%snn_add_dense_layer(out_nodes  = classes, &
                                  activ      = 'softmax', &
-                                 drop_rate  = 0.25)
+                                 drop_rate  = 0d25)
 
     call snn%snn_summary()
 
@@ -190,7 +191,7 @@ program main
                      target_labels = train_y_onehot, &
                      batch_size    = 256, &
                      epochs        = 5, &
-                     learn_rate    = 0.1, &
+                     learn_rate    = 0d1, &
                      loss          = 'cross_entropy', &
                      verbose       = 2)
 

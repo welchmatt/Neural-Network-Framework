@@ -14,9 +14,9 @@ program main
     use sequential_neural_net
     implicit none
 
-    class(SeqNN), pointer :: snn
-    real, allocatable     :: X(:,:), Y(:,:), prediction(:,:)
-    real                  :: loss
+    class(SeqNN), pointer     :: snn
+    real(kind=8), allocatable :: X(:,:), Y(:,:), prediction(:,:)
+    real(kind=8)              :: loss
 
     ! hardcode 4 XOR cases
     allocate(X(4,2), Y(4,1))
