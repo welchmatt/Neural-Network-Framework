@@ -42,7 +42,7 @@ subroutine dgemm_wrapper(a, b, c, transa, transb)
     ldb = size(b, dim=1)
 
     ! adjust variables for transpose a
-    if (present(transa) .and. (transa .eqv. .true.)) then
+    if (present(transa) .and. transa) then
         a_t = 't'
         m   = size(a, dim=2)
         k   = size(a, dim=1)
@@ -53,7 +53,7 @@ subroutine dgemm_wrapper(a, b, c, transa, transb)
     end if
 
     ! adjust variables for transpose b
-    if (present(transb) .and. (transb .eqv. .true.)) then
+    if (present(transb) .and. transb) then
         b_t = 't'
         n   = size(b, dim=1)
     else
@@ -88,17 +88,25 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! a:        (real(:,:)) array to write
 ! filepath: (characters) desired full path with filename
+! append:   (logical) .true. to append row to existing file, else new file
 !-------------------------------------------------------------------------------
 ! alters :: filepath has values of a appended as CSV-formatted row
 !-------------------------------------------------------------------------------
-subroutine write_array_2D(a, filepath)
+subroutine write_array_2D(a, filepath, append)
     real(kind=8), intent(in)      :: a(:,:)
     character(*), intent(in)      :: filepath
+    logical, intent(in)           :: append
     integer                       :: ios, r, c, rows, cols
     character(len=30)             :: val
-    character(len=:), allocatable :: cleanval
+    character(len=:), allocatable :: cleanval, pos
 
-    open(unit=1, file=filepath, form='formatted', position='append', iostat=ios)
+    if (append) then
+        pos = 'append'
+    else
+        pos = 'rewind'
+    end if
+
+    open(unit=1, file=filepath, form='formatted', position=pos, iostat=ios)
 
     if (ios /= 0) then
         print *, 'Error opening file.'

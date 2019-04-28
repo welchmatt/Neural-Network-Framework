@@ -206,7 +206,20 @@ program main
     print *, '----------------------'
 
     !---------------------------------------------------------------------------
+    ! store first conv layer kernels (each depth=1) to file to visualize
 
+    ! overwrite file (if it exists), start first row
+    call write_array_2D(snn%cnn%first_hid%k(:,:,1,1), &
+                            'output-data/first_layer_weights.csv', .false.)
+
+    do i = 2, 32
+        ! append remaining rows
+        call write_array_2D(snn%cnn%first_hid%k(:,:,1,i), &
+                            'output-data/first_layer_weights.csv', .true.)
+    end do
+
+    !---------------------------------------------------------------------------
+    
     deallocate(train_images, train_y_onehot, test_images, test_y_onehot)
     call deallocate_snn(snn)
 end program
