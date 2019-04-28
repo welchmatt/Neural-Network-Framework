@@ -26,14 +26,20 @@ FFLAGS = -O3
 SDIR = src
 ODIR = obj
 MDIR = mod
+BDIR = BLAS
 
 # framework source files; must specify dependency order in Fortran
-BASE_DEPS = lsame.f xerbla.f dgemm.f \
-			net_helper_procedures.f08 \
+BASE_DEPS = net_helper_procedures.f08 \
 			pool_layer_definitions.f08 \
 			dense_layer_definitions.f08 conv_layer_definitions.f08 \
 			dense_neural_net.f08 conv_neural_net.f08 \
 			sequential_neural_net.f08
+
+# build blas objects
+BLAS_DEPS = lsame.f xerbla.f dgemm.f
+BLAS_SRC = $(addprefix $(BDIR)/, $(BLAS_DEPS))
+BLAS_OBJ = $(patsubst $(BDIR)/%.f08, $(ODIR)/%.o, $(BLAS_SRC))
+BLAS_MOD = $(patsubst $(BDIR)/%.f08, $(ODIR)/%.mod, $(BLAS_SRC))
 
 #-------------------------------------------------------------------------------
 # TEMPLATE: for implementing the framework in your own code;
@@ -46,27 +52,31 @@ BASE_DEPS = lsame.f xerbla.f dgemm.f \
 # YOUR_SRC = $(addprefix src/, $(YOUR_DEPS))
 # YOUR_OBJ = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.o, $(YOUR_SRC))
 # YOUR_MOD = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.mod, $(YOUR_SRC))
+# YOUR_OBJ += $(BLAS_OBJ)
 #
 # see below for next step in implementation
 #-------------------------------------------------------------------------------
 
 # xor test
 XOR_DEPS = $(BASE_DEPS) test_xor.f08
-XOR_SRC = $(addprefix src/, $(XOR_DEPS))
+XOR_SRC = $(addprefix $(SDIR)/, $(XOR_DEPS))
 XOR_OBJ = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.o, $(XOR_SRC))
 XOR_MOD = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.mod, $(XOR_SRC))
+XOR_OBJ += $(BLAS_OBJ)
 
 # mnist test
 MNIST_DEPS = $(BASE_DEPS) test_mnist.f08
-MNIST_SRC = $(addprefix src/, $(MNIST_DEPS))
+MNIST_SRC = $(addprefix $(SDIR)/, $(MNIST_DEPS))
 MNIST_OBJ = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.o, $(MNIST_SRC))
 MNIST_MOD = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.mod, $(MNIST_SRC))
+MNIST_OBJ += $(BLAS_OBJ)
 
 # autoencoder test
 AUTOENC_DEPS = $(BASE_DEPS) test_autoenc.f08
-AUTOENC_SRC = $(addprefix src/, $(AUTOENC_DEPS))
+AUTOENC_SRC = $(addprefix $(SDIR)/, $(AUTOENC_DEPS))
 AUTOENC_OBJ = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.o, $(AUTOENC_SRC))
 AUTOENC_MOD = $(patsubst $(SDIR)/%.f08, $(ODIR)/%.mod, $(AUTOENC_SRC))
+AUTOENC_OBJ += $(BLAS_OBJ)
 
 #-------------------------------------------------------------------------------
 # TEMPLATE: add usage statement here

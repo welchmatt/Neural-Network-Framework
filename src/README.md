@@ -9,13 +9,6 @@ pool_layer_definitions.f08
 sequential_neural_net.f08
 ```
 
-BLAS source code files (from http://www.netlib.org/blas/):
-```
-dgemm.f
-lsame.f
-xerbla.f
-```
-
 Test source code files:
 ```
 test_autoenc.f08
