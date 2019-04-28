@@ -174,10 +174,12 @@ program main
                                 padding     = 'valid')
 
     call snn%snn_add_dense_layer(out_nodes  = 128, &
-                                 activ      = 'relu')
+                                 activ      = 'relu', &
+                                 drop_rate  = 0.25)
 
     call snn%snn_add_dense_layer(out_nodes  = classes, &
-                                 activ      = 'softmax')
+                                 activ      = 'softmax', &
+                                 drop_rate  = 0.25)
 
     call snn%snn_summary()
 
