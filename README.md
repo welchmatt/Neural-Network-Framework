@@ -25,11 +25,11 @@ call snn%snn_add_pool_layer(kernel_dims = [2,2], &
 
 call snn%snn_add_dense_layer(out_nodes  = 128, &
                              activ      = 'relu', &
-                             drop_rate  = 0.25)
+                             drop_rate  = 0d25) ! d for double precision
 
 call snn%snn_add_dense_layer(out_nodes  = classes, &
                              activ      = 'softmax', &
-                             drop_rate  = 0.25)
+                             drop_rate  = 0d25)
 
 call snn%snn_summary()
 ```
@@ -61,7 +61,7 @@ call snn%snn_fit(conv_input    = train_images, &
                  target_labels = train_y_onehot, &
                  batch_size    = 256, &
                  epochs        = 5, &
-                 learn_rate    = 0.1, &
+                 learn_rate    = 0d1, &
                  loss          = 'cross_entropy', &
                  verbose       = 2)
 ```
