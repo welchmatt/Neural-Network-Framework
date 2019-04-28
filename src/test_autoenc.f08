@@ -87,7 +87,7 @@ program main
         ! 28x28x1 array filled column-major order
         image = reshape(train_x(i,:), [28,28,1])
 
-        ! transpose gives "expected" order
+        ! transpose gives "expected" row-major order
         image(:,:,1) = transpose(image(:,:,1))
 
         train_images(:,:,:,i) = image
@@ -130,7 +130,7 @@ program main
         ! 28x28x1 array filled column-major order
         image = reshape(test_x(i,:), [28,28,1])
 
-        ! transpose gives "expected" order
+        ! transpose gives "expected" row-major order
         image(:,:,1) = transpose(image(:,:,1))
 
         test_images(:,:,:,i) = image
@@ -194,6 +194,7 @@ program main
 
     !---------------------------------------------------------------------------
     ! check network loss on test data
+    
     loss = snn%snn_regression_loss(conv_input    = train_images,  &
                                    target_images = train_images, &
                                    loss          = 'mse', &

@@ -85,7 +85,7 @@ program main
         ! 28x28x1 array filled column-major order
         image = reshape(train_x(i,:), [28,28,1])
 
-        ! transpose gives "expected" order
+        ! transpose gives "expected" row-major order
         image(:,:,1) = transpose(image(:,:,1))
 
         train_images(:,:,:,i) = image
@@ -196,7 +196,7 @@ program main
 
     !---------------------------------------------------------------------------
     ! check network accuracy on test data
-
+    
     accuracy = snn%snn_one_hot_accuracy(conv_input    = test_images, &
                                         target_labels = test_y_onehot, &
                                         verbose       = 2)
