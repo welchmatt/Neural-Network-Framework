@@ -31,10 +31,10 @@ program main
 
     call snn%snn_add_dense_layer(input_nodes = 2, &
                                  out_nodes   = 2, &
-                                 activation  = 'elu')
+                                 activ       = 'elu')
 
     call snn%snn_add_dense_layer(out_nodes  = 1, &
-                                 activation = 'elu')
+                                 activ      = 'elu')
 
     call snn%snn_summary()
 
