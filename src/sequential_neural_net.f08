@@ -131,8 +131,8 @@ subroutine snn_add_conv_layer(this, kernels, kernel_dims, stride, activ, &
     integer, intent(in)                :: kernels, kernel_dims(2), stride(2)
     character(*), intent(in)           :: activ, padding
     integer, intent(in), optional      :: input_dims(3)
-    real(kind=8), intent(in), optional :: drop_rate
-    real(kind=8)                       :: drop
+    real, intent(in), optional         :: drop_rate
+    real                               :: drop
 
     if (.not. (activ == 'sigmoid' .or. activ == 'relu' .or. &
         activ == 'leaky_relu' .or. activ == 'elu')) then
@@ -239,8 +239,8 @@ subroutine snn_add_dense_layer(this, out_nodes, activ, input_nodes, drop_rate)
     integer, intent(in)                :: out_nodes
     character(*), intent(in)           :: activ
     integer, intent(in), optional      :: input_nodes
-    real(kind=8), intent(in), optional :: drop_rate
-    real(kind=8)                       :: drop
+    real, intent(in), optional         :: drop_rate
+    real                               :: drop
 
     if (.not. (activ == 'sigmoid' .or. activ == 'relu' .or. &
         activ == 'leaky_relu' .or. activ == 'elu' .or. &
@@ -519,7 +519,7 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine snn_update(this, learn_rate, is_train, conv_batch, dense_batch)
     class(SeqNN)                       :: this
-    real(kind=8), intent(in)           :: learn_rate
+    real, intent(in)                   :: learn_rate
     real(kind=8), intent(in), optional :: conv_batch(:,:,:,:), dense_batch(:,:)
     logical, intent(in)                :: is_train
     real(kind=8), allocatable          :: dnn_batch(:,:)
@@ -603,7 +603,7 @@ subroutine snn_fit(this, batch_size, epochs, learn_rate, loss, &
                    target_labels, target_images)
     class(SeqNN)              :: this
     integer, intent(in)       :: batch_size, epochs
-    real(kind=8), intent(in)  :: learn_rate
+    real, intent(in)          :: learn_rate
     character(*), intent(in)  :: loss
     real(kind=8), optional    :: conv_input(:,:,:,:), dense_input(:,:), &
                                  target_labels(:,:), target_images(:,:,:,:)

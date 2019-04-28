@@ -59,7 +59,7 @@ type :: ConvLayer
                                  a(:,:,:,:), & ! activations
                                  d(:,:,:,:), & ! deltas (errors)
                                  drop(:,:,:,:) ! dropout inputs (0=drop, 1=keep)
-    real(kind=8)              :: drop_rate     ! % of input nodes to drop
+    real                      :: drop_rate     ! % of input nodes to drop
 contains
     ! procedures that traverse through linked list of ConvLayers
     procedure, pass           :: conv_init, conv_add_pool_layer, &
@@ -95,7 +95,7 @@ function create_conv_layer(input_dims, kernels, kernel_dims, stride, &
     integer, intent(in)       :: input_dims(3), kernels, kernel_dims(2), &
                                   stride(2)
     character(*), intent(in)  :: activ, padding
-    real(kind=8), intent(in)  :: drop_rate
+    real, intent(in)          :: drop_rate
     integer                   :: pad_rows, final_rows, pad_cols, final_cols
 
     if (.not. (padding == 'valid' .or. &
@@ -372,12 +372,13 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine conv_update(this, input0, learn_rate, is_train)
     class(ConvLayer)          :: this
-    real(kind=8), intent(in)  :: input0(:,:,:,:), learn_rate
+    real(kind=8), intent(in)  :: input0(:,:,:,:)
+    real, intent(in)          :: learn_rate
     logical, intent(in)       :: is_train
     real(kind=8), allocatable :: input(:,:,:,:), total_k_change(:,:,:,:), &
                                  k_change(:,:,:,:), chan_avgs(:,:,:), &
                                  chan_biases(:)
-    real(kind=8)              :: scale
+    real                      :: scale
     integer                   :: i
 
     if (this%drop_rate > 0 .and. is_train) then

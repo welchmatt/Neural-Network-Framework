@@ -110,7 +110,7 @@ subroutine dnn_add_layer(this, out_nodes, activation, drop_rate)
     class(DenseNN)             :: this
     integer, intent(in)        :: out_nodes
     character(*), intent(in)   :: activation
-    real(kind=8), intent(in)   :: drop_rate
+    real, intent(in)           :: drop_rate
     class(DenseLayer), pointer :: new_layer
     integer                    :: in_nodes
 
@@ -262,7 +262,8 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine dnn_update(this, input, learn_rate, is_train)
     class(DenseNN)           :: this
-    real(kind=8), intent(in) :: input(:,:), learn_rate
+    real(kind=8), intent(in) :: input(:,:)
+    real, intent(in)         :: learn_rate
     logical, intent(in)      :: is_train
 
     ! first_hid's a(l-1) is input batch

@@ -48,7 +48,7 @@ type :: DenseLayer
                                   a(:,:), & ! activations
                                   d(:,:), & ! deltas (errors),
                                   drop(:,:) ! dropout inputs (0=drop, 1=keep)
-    real(kind=8)               :: drop_rate ! % of input nodes to drop
+    real                       :: drop_rate ! % of input nodes to drop
 contains
     ! procedures that traverse through linked list of DenseLayers
     procedure, pass            :: dense_init, dense_update, &
@@ -75,7 +75,7 @@ function create_dense_layer(in_nodes, out_nodes, activ, drop_rate)
     class(DenseLayer), pointer :: create_dense_layer
     integer, intent(in)        :: in_nodes, out_nodes
     character(*), intent(in)   :: activ
-    real(kind=8), intent(in)   :: drop_rate
+    real, intent(in)           :: drop_rate
 
     allocate(create_dense_layer)
     create_dense_layer%in_nodes   =  in_nodes
@@ -245,7 +245,8 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine dense_update(this, input, learn_rate, is_train)
     class(DenseLayer)         :: this
-    real(kind=8), intent(in)  :: input(:,:), learn_rate
+    real(kind=8), intent(in)  :: input(:,:)
+    real, intent(in)          :: learn_rate
     logical, intent(in)       :: is_train
     real(kind=8), allocatable :: avg_change_row(:), delta_w(:,:)
     real(kind=8)              :: scale

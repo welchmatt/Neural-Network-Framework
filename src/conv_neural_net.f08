@@ -110,7 +110,7 @@ subroutine cnn_add_layer(this, kernels, kernel_dims, stride, activ, padding, &
     class(ConvNN)             :: this
     integer, intent(in)       :: kernels, kernel_dims(2), stride(2)
     character(*), intent(in)  :: activ, padding
-    real(kind=8), intent(in)  :: drop_rate
+    real, intent(in)          :: drop_rate
     class(ConvLayer), pointer :: new_layer
     integer                   :: input_dims(3)
 
@@ -312,7 +312,8 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine cnn_update(this, input, learn_rate, is_train)
     class(ConvNN)            :: this
-    real(kind=8), intent(in) :: input(:,:,:,:), learn_rate
+    real(kind=8), intent(in) :: input(:,:,:,:)
+    real, intent(in)         :: learn_rate
     logical, intent(in)      :: is_train
 
     ! first hid a(l-1) is input batch
