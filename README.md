@@ -104,10 +104,10 @@ snn => create_snn()
 
 call snn%snn_add_dense_layer(input_nodes = 2, &
                              out_nodes   = 2, &
-                             activation  = 'elu')
+                             activ       = 'elu')
 
 call snn%snn_add_dense_layer(out_nodes  = 1, &
-                             activation = 'elu')
+                             activ      = 'elu')
 ```
 
 This serves as a raw test of regression, rather than classification (as is the case for MNIST).  Although there are many well-known local optima in the XOR function, this model will have near-perfect results every couple of (fast) runs, where each column represents one of the four XOR cases:
