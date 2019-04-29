@@ -73,7 +73,7 @@ accuracy = snn%snn_one_hot_accuracy(conv_input   = test_images, &
                                     verbose      = 2)
 ```
 
-Without much fine-tuning of the model's structure, the above version consistently achieves an accuracy of around 96%.
+Without much fine-tuning of the model's structure (or other optimizations), the above version consistently achieves an accuracy of around 94-96%.
 
 ## Prerequisites
 * GFortran 8.3.0 (for Fortran 2008 support)
