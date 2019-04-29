@@ -17,10 +17,8 @@ contains
 !===============================================================================
 
 !-------------------------------------------------------------------------------
-! write 2D array as CSV-formatted row appended to given file, row-major order;
-! 
-! appends to file at filepath if it exists, otherwise creates new file;
-! filepath should be relative to overall project folder with executable
+! wrapper for DGEMM from BLAS; matrix multiplication: c = a * b,
+! where either or both of a, b can be transposed
 !-------------------------------------------------------------------------------
 ! a:        (real(:,:))
 ! b:        (real(:,:))
