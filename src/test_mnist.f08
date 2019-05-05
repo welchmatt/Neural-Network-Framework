@@ -176,8 +176,8 @@ program main
 
     call snn%snn_add_dense_layer(out_nodes  = 128, &
                                  activ      = 'relu', &
-                                 ! dropout nodes entering this layer; will soon
-                                 ! implement separate "dropout layer"
+                                 ! dropout nodes entering this layer; will
+                                 ! soon implement separate "dropout layer"
                                  drop_rate  = 0.10)
 
     call snn%snn_add_dense_layer(out_nodes  = classes, &
