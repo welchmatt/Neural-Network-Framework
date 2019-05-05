@@ -228,7 +228,7 @@ end subroutine
 ! targets:  (real(:,:,:,:)) targets we are trying to predict
 ! loss:     (characters) loss function
 !-------------------------------------------------------------------------------
-! alters :: program crashes if this ConvNN's output layer's d is not calculated
+! alters :: this ConvNN's output layer's d calculated
 !-------------------------------------------------------------------------------
 subroutine cnn_out_delta(this, targets, loss)
     class(ConvNN)            :: this

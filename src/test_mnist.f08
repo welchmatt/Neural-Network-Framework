@@ -27,7 +27,7 @@ program main
     use sequential_neural_net
     implicit none
 
-    class(SeqNN), pointer :: snn
+    class(SeqNN), pointer     :: snn
     real(kind=8), allocatable :: image(:,:,:), train_images(:,:,:,:), &
                                  test_images(:,:,:,:), train(:,:), test(:,:), &
                                  train_x(:,:), train_y(:), &
@@ -176,11 +176,13 @@ program main
 
     call snn%snn_add_dense_layer(out_nodes  = 128, &
                                  activ      = 'relu', &
-                                 drop_rate  = 0.25) ! d for double precision
+                                 ! dropout nodes entering this layer; will soon
+                                 ! implement separate "dropout layer"
+                                 drop_rate  = 0.10)
 
     call snn%snn_add_dense_layer(out_nodes  = classes, &
                                  activ      = 'softmax', &
-                                 drop_rate  = 0.25)
+                                 drop_rate  = 0.10)
 
     call snn%snn_summary()
 
@@ -206,16 +208,21 @@ program main
     print *, '----------------------'
 
     !---------------------------------------------------------------------------
-    ! store first conv layer kernels (each depth=1) to file to visualize
+    ! store first conv layer kernels and biases to file to visualize;
+    ! biases are repeated to fill array, so we only select one
 
     ! overwrite file (if it exists), start first row
     call write_array_2D(snn%cnn%first_hid%k(:,:,1,1), &
                             'output-data/first_layer_weights.csv', .false.)
+    call write_array_2D(snn%cnn%first_hid%b(1:1,1:1,1), &
+                            'output-data/first_layer_biases.csv', .false.)
 
     do i = 2, 32
         ! append remaining rows
         call write_array_2D(snn%cnn%first_hid%k(:,:,1,i), &
                             'output-data/first_layer_weights.csv', .true.)
+        call write_array_2D(snn%cnn%first_hid%b(1:1,1:1,i), &
+                            'output-data/first_layer_biases.csv', .true.)
     end do
 
     !---------------------------------------------------------------------------

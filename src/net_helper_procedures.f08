@@ -697,8 +697,8 @@ end function
 
 !-------------------------------------------------------------------------------
 ! returns the size of a dimension after being passed over with 'valid'
-! cross correlation; typically used by first calculating the pad and including
-! that total amaount as the a_dim
+! cross correlation; typically used by first calculating the pad with pad_calc
+! and including that total amount of padding in the a_dim
 !-------------------------------------------------------------------------------
 ! a_dim:      (integer) base array dimension
 ! kernel_dim: (integer) kernel dimension
@@ -708,7 +708,6 @@ end function
 !-------------------------------------------------------------------------------
 integer function res_calc(a_dim, kernel_dim, stride_dim)
     integer, intent(in) :: a_dim, kernel_dim, stride_dim
-
     res_calc = (a_dim - kernel_dim) / stride_dim + 1
 end function
 
@@ -917,8 +916,8 @@ subroutine cross_correlate_2D(a, padding, kernel, stride, res)
 
             do kr = 1, k_rows
                 do kc = 1, k_cols
-                    ! each index in the result is the dot product between the
-                    ! kernel and a matching-sized section of the padded array
+                    ! each index in result is dot product between kernel
+                    ! and matching-sized section of the padded array
                     res(r,c) = res(r,c) + padded((r-1)*stride(1)+kr, &
                                                  (c-1)*stride(2)+kc) * &
                                           kernel(kr,kc)
@@ -996,8 +995,8 @@ subroutine cross_correlate_3D(a, padding, kernel, stride, res)
             do kr = 1, k_rows
                 do kc = 1, k_cols
                     do kd = 1, k_channels
-                        ! each index in the result is the dot product between the
-                        ! kernel and a matching-sized section of the padded array
+                        ! each index in result is dot product between kernel
+                        ! and matching-sized section of the padded array
                         res(r,c) = res(r,c) + padded((r-1)*stride(1)+kr, &
                                                      (c-1)*stride(2)+kc, kd) * &
                                               kernel(kr,kc,kd)
@@ -1357,7 +1356,9 @@ subroutine transpose_convolve_3D_perms_sum_kernel(a, padding, kernels, &
     integer                   :: a_rows, a_cols, a_channels, k_channels, &
                                  res_row_pad, res_col_pad, top_pad, left_pad, &
                                  a_i, k_i
+    logical                   :: zero_init
 
+    zero_init  = .false.
     a_rows     = size(a, dim=1)
     a_cols     = size(a, dim=2)
     a_channels = size(a, dim=3)
@@ -1390,21 +1391,25 @@ subroutine transpose_convolve_3D_perms_sum_kernel(a, padding, kernels, &
             end if
 
             ! create new array if not correct size
-            if (allocated(res)) then
-                ! deallocate if wrong size
-                if (.not. all(shape(res(:,:,1)) == shape(unpad_channel)) .or. &
-                    size(res, dim=3) /= k_channels) then
-                    deallocate(res)
-                else
-                    res = 0 ! allocated, and correct size
+            if (.not. zero_init) then
+                if (allocated(res)) then
+                    ! deallocate if wrong size
+                    if (.not. all(shape(res(:,:,1)) == shape(unpad_channel)) .or. &
+                        size(res, dim=3) /= k_channels) then
+                        deallocate(res)
+                    else
+                        res = 0 ! allocated, and correct size
+                        zero_init = .true.
+                    end if
                 end if
-            end if
 
-            if (.not. allocated(res)) then
-                allocate(res(size(unpad_channel, dim=1), &
-                             size(unpad_channel, dim=2), &
-                             k_channels))
-                res = 0
+                if (.not. allocated(res)) then
+                    allocate(res(size(unpad_channel, dim=1), &
+                                 size(unpad_channel, dim=2), &
+                                 k_channels))
+                    res = 0
+                    zero_init = .true.
+                end if
             end if
 
             ! sum up results by kernel channel
@@ -1437,6 +1442,7 @@ subroutine cross_correlate_3D_perms_sum_kernel(a, padding, kernels, stride, res)
     real(kind=8), allocatable :: res(:,:,:), res_channel(:,:), exp_a(:,:,:)
     integer                   :: a_rows, a_cols, a_channels, k_channels, &
                                  a_i, k_i
+    logical                   :: zero_init
 
     if (padding /= 'full') then
         print *, '-------------------------------------------------------'
@@ -1446,6 +1452,7 @@ subroutine cross_correlate_3D_perms_sum_kernel(a, padding, kernels, stride, res)
         stop -1
     end if
 
+    zero_init  = .false.
     a_rows     = size(a, dim=1)
     a_cols     = size(a, dim=2)
     a_channels = size(a, dim=3)
@@ -1462,22 +1469,26 @@ subroutine cross_correlate_3D_perms_sum_kernel(a, padding, kernels, stride, res)
             call cross_correlate_2D(exp_a(:,:,a_i), 'valid', &
                                     kernels(:,:,k_i,a_i), [1,1], res_channel)
 
-            ! create new array if not correct size
-            if (allocated(res)) then
-                ! deallocate if wrong size
-                if (.not. all(shape(res(:,:,1)) == shape(res_channel)) .or. &
-                    size(res, dim=3) /= k_channels) then
-                    deallocate(res)
-                else
-                    res = 0 ! allocated, and correct size
+            if (.not. zero_init) then
+                ! create new array if not correct size
+                if (allocated(res)) then
+                    ! deallocate if wrong size
+                    if (.not. all(shape(res(:,:,1)) == shape(res_channel)) .or. &
+                        size(res, dim=3) /= k_channels) then
+                        deallocate(res)
+                    else
+                        res = 0 ! allocated, and correct size
+                        zero_init = .true.
+                    end if
                 end if
-            end if
 
-            if (.not. allocated(res)) then
-                allocate(res(size(res_channel, dim=1), &
-                             size(res_channel, dim=2), &
-                             k_channels))
-                res = 0
+                if (.not. allocated(res)) then
+                    allocate(res(size(res_channel, dim=1), &
+                                 size(res_channel, dim=2), &
+                                 k_channels))
+                    res = 0
+                    zero_init = .true.
+                end if
             end if
 
             ! sum up results by kernel channel
