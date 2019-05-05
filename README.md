@@ -25,11 +25,13 @@ call snn%snn_add_pool_layer(kernel_dims = [2,2], &
 
 call snn%snn_add_dense_layer(out_nodes  = 128, &
                              activ      = 'relu', &
-                             drop_rate  = 0.25)
+                             ! dropout nodes entering this layer; will
+                             ! soon implement separate "dropout layer"
+                             drop_rate  = 0.10)
 
 call snn%snn_add_dense_layer(out_nodes  = classes, &
                              activ      = 'softmax', &
-                             drop_rate  = 0.25)
+                             drop_rate  = 0.10)
 
 call snn%snn_summary()
 ```
