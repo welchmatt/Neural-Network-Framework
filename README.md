@@ -1,7 +1,7 @@
 # Neural-Network-Framework
-A high-level neural network framework, written in pure Fortran.  It supports convolutional, deconvolutional, pooling, dropout, and dense layers (with BLAS), with an API inspired by Keras.
+A high-level neural network framework, written in pure Fortran.  It supports convolutional, deconvolutional, pooling, dropout, and dense layers (with BLAS).
 
-The following is an example CNN to predict on the MNIST dataset (see Tests below).  The name "snn" stands for "sequential neural network," as in Keras, which is used as the foundation for adding different layers.
+The following is an example CNN to predict on the MNIST dataset.  The name "snn" stands for "sequential neural network," as in Keras, which is used as the foundation for adding different layers.
 ```fortran
 snn => create_snn()
 
