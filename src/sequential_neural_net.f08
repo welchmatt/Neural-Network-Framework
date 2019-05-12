@@ -993,7 +993,7 @@ real(kind=8) function snn_one_hot_accuracy(this, target_labels, &
 end function
 
 !-------------------------------------------------------------------------------
-! handles predicting with trained SeqNN on all given data (inputs, labels)
+! handles predicting with trained SeqNN on all given input data
 !
 ! must only pass conv_input if ConvLayers in SeqNN, otherwise
 ! must only pass dense_input if no ConvLayers present
