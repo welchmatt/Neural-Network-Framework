@@ -193,7 +193,7 @@ end subroutine
 ! pool:        (characters) pool type
 ! padding:     (characters) padding type
 !-------------------------------------------------------------------------------
-! alters ::    new ConvLayer appended to this SeqNN's ConvNN linked list
+! alters ::    new PoolLayer appended to last layer in this SeqNN's ConvNN
 !-------------------------------------------------------------------------------
 subroutine snn_add_pool_layer(this, kernel_dims, stride, pool, padding)
     class(SeqNN)             :: this
