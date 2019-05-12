@@ -336,7 +336,7 @@ end function
 ! subroutine needed because some output activation functions (like softmax) are
 ! not element-wise, so we must manipulate an array, not return a value
 !-------------------------------------------------------------------------------
-! a:         (real(:,:))
+! z:         (real(:,:))
 ! out_activ: (characters) output activation function
 ! res:       (real(:,:)) stores the output
 !-------------------------------------------------------------------------------
