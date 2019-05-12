@@ -304,7 +304,7 @@ elemental real(kind=8) function activfunc(z, activ)
 end function
 
 !-------------------------------------------------------------------------------
-! wrapper for element-wise activation function derivative;
+! wrapper for element-wise activation function derivatives;
 ! SUPPORTED: sigmoid, relu, leaky_relu, elu;
 ! must be checked by caller, so that this function can remain elemental
 !-------------------------------------------------------------------------------
