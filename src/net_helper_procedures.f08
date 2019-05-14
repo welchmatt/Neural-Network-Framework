@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-! helper functions for arrays; thse are utilized by neural network structures,
+! helper functions for arrays; these are utilized by neural network structures,
 ! but can be used on arrays in general
 !-------------------------------------------------------------------------------
 ! Matt Welch
