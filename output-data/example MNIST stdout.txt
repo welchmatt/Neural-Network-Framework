@@ -1,0 +1,94 @@
+ ----------------------
+ processing train data:
+ done
+ ----------------------
+ ----------------------
+ processing test data:
+ done
+ ----------------------
+ ----------------------
+ dimensions:               rows        cols    channels
+ -----------
+ ConvLayer input:            28          28           1
+ ConvLayer output:           26          26          32
+ ConvLayer output:           24          24          64
+ PoolLayer output:           12          12          64
+ -----------
+ dimensions:              nodes
+ -----------
+ DenseLayer input:         9216
+ DenseLayer output:         128
+ DenseLayer output:          10
+ ----------------------
+ epoch:           1
+ batch:          20 /         234
+ batch:          40 /         234
+ batch:          60 /         234
+ batch:          80 /         234
+ batch:         100 /         234
+ batch:         120 /         234
+ batch:         140 /         234
+ batch:         160 /         234
+ batch:         180 /         234
+ batch:         200 /         234
+ batch:         220 /         234
+ epoch:           2
+ batch:          20 /         234
+ batch:          40 /         234
+ batch:          60 /         234
+ batch:          80 /         234
+ batch:         100 /         234
+ batch:         120 /         234
+ batch:         140 /         234
+ batch:         160 /         234
+ batch:         180 /         234
+ batch:         200 /         234
+ batch:         220 /         234
+ epoch:           3
+ batch:          20 /         234
+ batch:          40 /         234
+ batch:          60 /         234
+ batch:          80 /         234
+ batch:         100 /         234
+ batch:         120 /         234
+ batch:         140 /         234
+ batch:         160 /         234
+ batch:         180 /         234
+ batch:         200 /         234
+ batch:         220 /         234
+ epoch:           4
+ batch:          20 /         234
+ batch:          40 /         234
+ batch:          60 /         234
+ batch:          80 /         234
+ batch:         100 /         234
+ batch:         120 /         234
+ batch:         140 /         234
+ batch:         160 /         234
+ batch:         180 /         234
+ batch:         200 /         234
+ batch:         220 /         234
+ epoch:           5
+ batch:          20 /         234
+ batch:          40 /         234
+ batch:          60 /         234
+ batch:          80 /         234
+ batch:         100 /         234
+ batch:         120 /         234
+ batch:         140 /         234
+ batch:         160 /         234
+ batch:         180 /         234
+ batch:         200 /         234
+ batch:         220 /         234
+ ----------------------
+ last train batch loss:
+   5.2299019476622695E-002
+ ----------------------
+ batch:          20 /          39
+ ----------------------
+ testing accuracy:  0.96864983974358976     
+ ----------------------
+
+real	208m5.343s
+user	207m15.004s
+sys	0m47.678s
