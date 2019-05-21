@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-! implementation of a convolutional and deconvolutional layer type (ConvLayer)
+! implementation of a convolutional/deconvolutional layer type (ConvLayer)
 !-------------------------------------------------------------------------------
 ! Matt Welch
 !-------------------------------------------------------------------------------
@@ -226,9 +226,9 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! helper subroutine to random initialize/overwrite a ConvLayers dropout array
 !-------------------------------------------------------------------------------
-! this:       (ConvLayer - implicitly passed)
+! this:     (ConvLayer - implicitly passed)
 !-------------------------------------------------------------------------------
-! alters ::   this ConvLayer's drop array has randomized values
+! alters :: this ConvLayer's drop array has randomized values
 !-------------------------------------------------------------------------------
 subroutine conv_dropout_rand(this)
     class(ConvLayer)   :: this

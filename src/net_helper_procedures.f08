@@ -391,10 +391,10 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! mean square error between predictions and true targets
 !-------------------------------------------------------------------------------
-! preds:      (real(:,:)) predictions
-! targets:    (real(:,:)) targets we want to predict
+! preds:     (real(:,:)) predictions
+! targets:   (real(:,:)) targets we want to predict
 !-------------------------------------------------------------------------------
-! returns ::  (real)
+! returns :: (real)
 !-------------------------------------------------------------------------------
 real(kind=8) function mse_func_2D(preds, targets)
     real(kind=8), intent(in) :: preds(:,:), targets(:,:)
@@ -404,10 +404,10 @@ end function
 !-------------------------------------------------------------------------------
 ! mean square error between predictions and true targets
 !-------------------------------------------------------------------------------
-! preds:      (real(:,:,:,:)) predictions
-! targets:    (real(:,:,:,:)) targets we want to predict
+! preds:     (real(:,:,:,:)) predictions
+! targets:   (real(:,:,:,:)) targets we want to predict
 !-------------------------------------------------------------------------------
-! returns ::  (real)
+! returns :: (real)
 !-------------------------------------------------------------------------------
 real(kind=8) function mse_func_4D(preds, targets)
     real(kind=8), intent(in) :: preds(:,:,:,:), targets(:,:,:,:)
@@ -417,10 +417,10 @@ end function
 !-------------------------------------------------------------------------------
 ! categorical cross entropy between predictions and true targets
 !-------------------------------------------------------------------------------
-! preds:      (real(:,:)) predictions
-! targets:    (real(:,:)) targets we want to predict
+! preds:     (real(:,:)) predictions
+! targets:   (real(:,:)) targets we want to predict
 !-------------------------------------------------------------------------------
-! returns ::  (real)
+! returns :: (real)
 !-------------------------------------------------------------------------------
 real(kind=8) function cross_entropy_func_2D(preds, targets)
     real(kind=8), intent(in) :: preds(:,:), targets(:,:)
@@ -430,10 +430,10 @@ end function
 !-------------------------------------------------------------------------------
 ! calculate the accuracy between predictions and one-hot label rows
 !-------------------------------------------------------------------------------
-! preds:      (real(:,:)) predictions
-! targets:    (real(:,:)) ONE-HOT ENCODED targets we want to predict
+! preds:     (real(:,:)) predictions
+! targets:   (real(:,:)) ONE-HOT ENCODED targets we want to predict
 !-------------------------------------------------------------------------------
-! returns ::  (real)
+! returns :: (real)
 !-------------------------------------------------------------------------------
 real(kind=8) function one_hot_accuracy_2D(preds, targets)
     real(kind=8), intent(in) :: preds(:,:), targets(:,:)
@@ -447,11 +447,11 @@ end function
 !-------------------------------------------------------------------------------
 ! wrapper for loss functions
 !-------------------------------------------------------------------------------
-! preds:      (real(:,:)) predictions
-! targets:    (real(:,:)) targets we want to predict
-! loss:       (characters) loss function
+! preds:     (real(:,:)) predictions
+! targets:   (real(:,:)) targets we want to predict
+! loss:      (characters) loss function
 !-------------------------------------------------------------------------------
-! returns ::  (real)
+! returns :: (real)
 !-------------------------------------------------------------------------------
 real(kind=8) function lossfunc_2D(preds, targets, loss)
     real(kind=8), intent(in) :: preds(:,:), targets(:,:)
@@ -475,11 +475,11 @@ end function
 !-------------------------------------------------------------------------------
 ! wrapper for loss functions
 !-------------------------------------------------------------------------------
-! preds:      (real(:,:,:,:)) predictions
-! targets:    (real(:,:,:,:)) targets we want to predict
-! loss:       (characters) loss function
+! preds:     (real(:,:,:,:)) predictions
+! targets:   (real(:,:,:,:)) targets we want to predict
+! loss:      (characters) loss function
 !-------------------------------------------------------------------------------
-! returns ::  (real)
+! returns :: (real)
 !-------------------------------------------------------------------------------
 real(kind=8) function lossfunc_4D(preds, targets, loss)
     real(kind=8), intent(in) :: preds(:,:,:,:), targets(:,:,:,:)
@@ -505,10 +505,10 @@ end function
 !-------------------------------------------------------------------------------
 ! shuffle rows of two 2D arrays in corresponding order (Fisher-Yates shuffle)
 !-------------------------------------------------------------------------------
-! a:         (real(:,:))
-! b:         (real(:,:))
+! a:        (real(:,:))
+! b:        (real(:,:))
 !-------------------------------------------------------------------------------
-! alters ::  rows of a and b are shuffled (correspondingly) in-place
+! alters :: rows of a and b are shuffled (correspondingly) in-place
 !-------------------------------------------------------------------------------
 subroutine pair_shuffle_2D_2D(a, b)
     real(kind=8)              :: a(:,:), b(:,:), randn
@@ -585,10 +585,10 @@ end subroutine
 ! shuffle 3D images in each 4D batch in corresponding order
 ! (Fisher-Yates shuffle)
 !-------------------------------------------------------------------------------
-! a:         (real(:,:,:,:))
-! b:         (real(:,:,:,:))
+! a:        (real(:,:,:,:))
+! b:        (real(:,:,:,:))
 !-------------------------------------------------------------------------------
-! alters ::  a and b images shuffled (correspondingly) in-place
+! alters :: a and b images shuffled (correspondingly) in-place
 !-------------------------------------------------------------------------------
 subroutine pair_shuffle_4D_4D(a, b)
     real(kind=8)              :: a(:,:,:,:), b(:,:,:,:), randn

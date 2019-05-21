@@ -138,9 +138,9 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! helper subroutine to random initialize/overwrite a DenseLayers dropout array
 !-------------------------------------------------------------------------------
-! this:       (DenseLayer - implicitly passed)
+! this:     (DenseLayer - implicitly passed)
 !-------------------------------------------------------------------------------
-! alters ::   this DenseLayer's drop array has randomized values
+! alters :: this DenseLayer's drop array has randomized values
 !-------------------------------------------------------------------------------
 subroutine dense_dropout_rand(this)
     class(DenseLayer)   :: this
