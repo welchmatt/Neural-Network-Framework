@@ -1,9 +1,4 @@
 !-------------------------------------------------------------------------------
-! TODO:
-!   * update snn_predict to handle only ConvNN present (need two functions)
-!-------------------------------------------------------------------------------
-
-!-------------------------------------------------------------------------------
 ! sequential neural network implementation that utilizes ConvLayers, PoolLayers,
 ! and DenseLayers in "sequence" (hence the name sequential - based on Keras)
 !-------------------------------------------------------------------------------
