@@ -16,4 +16,9 @@ test_mnist.f08
 test_xor.f08
 ```
 
+Auxiliary Python files for visualization:
+```
+plot_autoenc_example.ipynb
+```
+
 See the makefile in the parent folder for examples on how to use the modules in your own code.
