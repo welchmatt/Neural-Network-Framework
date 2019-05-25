@@ -1,5 +1,5 @@
 # Neural-Network-Framework
-A high-level neural network framework, written in pure Fortran.  It supports convolutional, deconvolutional, pooling, dropout, and dense layers.
+A high-level neural network framework, written in pure Fortran.  It supports convolutional, deconvolutional, pooling, dropout, and dense layers.  It can be used to construct regular CNNs and more complex models like autoencoders (see Tests below).
 
 The following is an example CNN to predict on the MNIST dataset.  The name "snn" stands for "sequential neural network," as in Keras, which is used as the foundation for adding different layers.
 ```fortran
@@ -126,32 +126,31 @@ make xor
 ```
 
 ### test_autoenc.f08
-Currently, this is just a sanity check for deconvolutional layers (convolutional layers with "full" padding).  For now, it creates an autoencoder-style network:
+Currently, this is just a sanity check for basic autoencoder functionality using deconvolutional layers (convolutional layers with "full" padding - will adjust to different layer type wrapper in future).  For now, it creates an autoencoder network:
 ```
+----------------------
  ----------------------
  dimensions:               rows        cols    channels
  -----------
  ConvLayer input:            28          28           1
- ConvLayer output:           24          24           8
- ConvLayer output:           20          20          16
- ConvLayer output:           16          16          32
- ConvLayer output:            6           6          64
- ConvLayer output:           16          16          32
- ConvLayer output:           20          20          16
- ConvLayer output:           24          24           8
+ ConvLayer output:           24          24          12
+ ConvLayer output:           20          20          12
+ ConvLayer output:           16          16          12
+ ConvLayer output:            6           6          12
+ ConvLayer output:           16          16          12
+ ConvLayer output:           20          20          12
+ ConvLayer output:           24          24          12
  ConvLayer output:           28          28           1
  -----------
  ----------------------
 ```
-This model is then trained on a batch of 5 images over multiple epochs, and the loss successfully decreases over time.
+Then trains on one image as a sanity check.  See plot_autoenc_example.ipynb in src folder for a visualization of the results!  I will later expand this to a test with all MNIST data.
 
 Compile and run with:
 ```
 make autoenc
 ./autoenc
 ```
-
-I am working on expanding this to a full autoencoder test, with further visualization of the results in Python.
 
 ### Cleanup
 All compiled files and executables can be removed with: 
