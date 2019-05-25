@@ -96,7 +96,8 @@ function create_conv_layer(input_dims, kernels, kernel_dims, stride, &
                                   stride(2)
     character(*), intent(in)  :: activ, padding
     real, intent(in)          :: drop_rate
-    integer                   :: pad_rows, final_rows, pad_cols, final_cols
+    integer                   :: pad_rows, final_rows, pad_cols, final_cols, &
+                                 exp_rows, exp_cols, stride_rows, stride_cols
 
     if (.not. (padding == 'valid' .or. &
                padding == 'same' .or. &
@@ -119,11 +120,26 @@ function create_conv_layer(input_dims, kernels, kernel_dims, stride, &
     create_conv_layer%next_layer => null()
     create_conv_layer%next_pool  => null()
 
+    if (padding == 'full') then
+        ! for full padding, we first expand the input before kernel
+        ! to upscale, then kernel is only applied with strides of 1
+        exp_rows    = expand_calc(input_dims(1), stride(1))
+        exp_cols    = expand_calc(input_dims(2), stride(2))
+        stride_rows = 1
+        stride_cols = 1
+    else
+        ! not full padding; fill in with normal values
+        exp_rows    = input_dims(1)
+        exp_cols    = input_dims(2)
+        stride_rows = stride(1)
+        stride_cols = stride(2)
+    end if
+
     ! determine output shape from input pad then applying kernel
-    pad_rows   = pad_calc(input_dims(1), kernel_dims(1), stride(1), padding)
-    pad_cols   = pad_calc(input_dims(2), kernel_dims(2), stride(2), padding)
-    final_rows = res_calc(input_dims(1)+pad_rows, kernel_dims(1), stride(1))
-    final_cols = res_calc(input_dims(2)+pad_cols, kernel_dims(2), stride(2))
+    pad_rows   = pad_calc(exp_rows, kernel_dims(1), stride_rows, padding)
+    pad_cols   = pad_calc(exp_cols, kernel_dims(2), stride_cols, padding)
+    final_rows = res_calc(exp_rows+pad_rows, kernel_dims(1), stride_rows)
+    final_cols = res_calc(exp_cols+pad_cols, kernel_dims(2), stride_cols)
 
     create_conv_layer%out_rows     = final_rows
     create_conv_layer%out_cols     = final_cols
@@ -393,7 +409,7 @@ subroutine conv_update(this, input0, learn_rate, is_train)
         call cross_correlate_3D_perms_group_base( &
                                             this%d(:,:,:,1), this%pad, &
                                             input(:,:,:,1), this%stride, &
-                                            'left', total_k_change)
+                                            'right', total_k_change)
     else
         call cross_correlate_3D_perms_group_kernel( &
                                             input(:,:,:,1), this%pad, &
@@ -407,7 +423,7 @@ subroutine conv_update(this, input0, learn_rate, is_train)
             call cross_correlate_3D_perms_group_base( &
                                                 this%d(:,:,:,i), this%pad, &
                                                 input(:,:,:,i), this%stride, &
-                                                'left', k_change)
+                                                'right', k_change)
         else
             call cross_correlate_3D_perms_group_kernel( &
                                                 input(:,:,:,i), this%pad, &

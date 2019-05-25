@@ -1,9 +1,7 @@
 !-------------------------------------------------------------------------------
 ! TODO:
-!       * this test is currently just a sanity check for deconvolution, where
-!         we see the loss decrease over time on a simple test.
-!       * eventually I will implement a full autoencoder test, with
-!         visualizations in Python to view the results
+!       * 
+!       * implement proper "prediction" function for images
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
@@ -43,8 +41,8 @@ program main
                                  pixels, row, i
     real(kind=8)              :: loss
 
-    train_rows = 5
-    test_rows = 5
+    train_rows = 10
+    test_rows = 10
     variables = 785
     pixels = variables - 1
     classes = 10
@@ -152,29 +150,55 @@ program main
 
     snn => create_snn()
 
-    ! encode
+    !-----------------------------------------------------
+    ! encoder layers
     call snn%snn_add_conv_layer(input_dims  = [28,28,1],&
-                                kernels     = 32, &
-                                kernel_dims = [3,3], &
+                                kernels     = 8, &
+                                kernel_dims = [5,5], &
+                                stride      = [1,1], &
+                                activ       = 'relu', &
+                                padding     = 'valid')
+
+    call snn%snn_add_conv_layer(kernels     = 16, &
+                                kernel_dims = [5,5], &
+                                stride      = [1,1], &
+                                activ       = 'relu', &
+                                padding     = 'valid')
+
+    call snn%snn_add_conv_layer(kernels     = 32, &
+                                kernel_dims = [5,5], &
                                 stride      = [1,1], &
                                 activ       = 'relu', &
                                 padding     = 'valid')
 
     call snn%snn_add_conv_layer(kernels     = 64, &
-                                kernel_dims = [3,3], &
-                                stride      = [1,1], &
+                                kernel_dims = [6,6], &
+                                stride      = [2,2], &
                                 activ       = 'relu', &
                                 padding     = 'valid')
 
-    ! decode
+    !-----------------------------------------------------
+    ! decoder layers
     call snn%snn_add_conv_layer(kernels     = 32, &
-                                kernel_dims = [3,3], &
+                                kernel_dims = [6,6], &
+                                stride      = [2,2], &
+                                activ       = 'relu', &
+                                padding     = 'full')
+
+    call snn%snn_add_conv_layer(kernels     = 16, &
+                                kernel_dims = [5,5], &
+                                stride      = [1,1], &
+                                activ       = 'relu', &
+                                padding     = 'full')
+
+    call snn%snn_add_conv_layer(kernels     = 8, &
+                                kernel_dims = [5,5], &
                                 stride      = [1,1], &
                                 activ       = 'relu', &
                                 padding     = 'full')
 
     call snn%snn_add_conv_layer(kernels     = 1, &
-                                kernel_dims = [3,3], &
+                                kernel_dims = [5,5], &
                                 stride      = [1,1], &
                                 activ       = 'relu', &
                                 padding     = 'full')
@@ -186,23 +210,18 @@ program main
 
     call snn%snn_fit(conv_input    = train_images, &
                      target_images = train_images, &
-                     batch_size    = 5, &
+                     batch_size    = 10, &
                      epochs        = 20, &
-                     learn_rate    = 0.01, &
+                     learn_rate    = 0.1, &
                      loss          = 'mse', &
                      verbose       = 2)
 
     !---------------------------------------------------------------------------
-    ! check network loss on test data
-    
-    loss = snn%snn_regression_loss(conv_input    = train_images,  &
-                                   target_images = train_images, &
-                                   loss          = 'mse', &
-                                   verbose       = 2)
+    ! store output (reconstruction) to file to visualize
 
-    print *, '----------------------'
-    print *, 'testing loss:', loss
-    print *, '----------------------'
+    ! overwrite file (if it exists), start first row
+    call write_array_2D(snn%cnn%output%a(:,:,1,1), &
+                            'output-data/autoenc_reco.csv', .false.)
 
     !---------------------------------------------------------------------------
 

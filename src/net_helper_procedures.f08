@@ -696,6 +696,20 @@ integer function pad_calc(a_dim, kernel_dim, stride_dim, padding)
 end function
 
 !-------------------------------------------------------------------------------
+! returns the total size of a dimension after being expanded with stride;
+! see expand_with_stride_3D subroutine below for description
+!-------------------------------------------------------------------------------
+! a_dim:      (integer) base array dimension
+! stride_dim: (integer) size of kernel moves in y direction
+!-------------------------------------------------------------------------------
+! returns ::  resulting dim size
+!-------------------------------------------------------------------------------
+integer function expand_calc(a_dim, stride_dim)
+    integer, intent(in) :: a_dim, stride_dim
+    expand_calc = a_dim + (a_dim - 1) * (stride_dim - 1)
+end function
+
+!-------------------------------------------------------------------------------
 ! returns the size of a dimension after being passed over with 'valid'
 ! cross correlation; typically used by first calculating the pad with pad_calc
 ! and including that total amount of padding in the a_dim
@@ -836,8 +850,8 @@ subroutine expand_with_stride_3D(a, stride, res)
         cols     = size(a, dim=2)
         channels = size(a, dim=3)
 
-        res_rows = rows + (rows - 1) * (stride(1) - 1)
-        res_cols = cols + (cols - 1) * (stride(2) - 1)
+        res_rows = expand_calc(rows, stride(1))
+        res_cols = expand_calc(cols, stride(2))
 
         ! create new array if not correct size
         if (allocated(res)) then
@@ -1136,7 +1150,7 @@ subroutine transpose_convolve_3D_kernels(a, padding, kernels, stride, res)
     real(kind=8), intent(in)  :: a(:,:,:), kernels(:,:,:,:)
     character(*), intent(in)  :: padding
     integer, intent(in)       :: stride(2)
-    real(kind=8), allocatable :: res(:,:,:), res_channel(:,:)
+    real(kind=8), allocatable :: exp_a(:,:,:), res(:,:,:), res_channel(:,:)
     integer                   :: k_count, k
 
     if (padding /= 'full') then
@@ -1149,9 +1163,12 @@ subroutine transpose_convolve_3D_kernels(a, padding, kernels, stride, res)
 
     k_count = size(kernels, dim=4)
 
+    ! account for stride
+    call expand_with_stride_3D(a, stride, exp_a)
+
     ! convolve each kernel with input
     do k = 1, k_count
-        call convolve_3D(a, padding, kernels(:,:,:,k), stride, res_channel)
+        call convolve_3D(exp_a, 'full', kernels(:,:,:,k), [1,1], res_channel)
 
         ! create new array if not correct size
         if (allocated(res)) then
@@ -1394,7 +1411,8 @@ subroutine transpose_convolve_3D_perms_sum_kernel(a, padding, kernels, &
             if (.not. zero_init) then
                 if (allocated(res)) then
                     ! deallocate if wrong size
-                    if (.not. all(shape(res(:,:,1)) == shape(unpad_channel)) .or. &
+                    if (.not. all(shape(res(:,:,1)) == &
+                                  shape(unpad_channel)) .or. &
                         size(res, dim=3) /= k_channels) then
                         deallocate(res)
                     else
@@ -1439,7 +1457,7 @@ subroutine cross_correlate_3D_perms_sum_kernel(a, padding, kernels, stride, res)
     real(kind=8), intent(in)  :: a(:,:,:), kernels(:,:,:,:)
     character(*), intent(in)  :: padding
     integer, intent(in)       :: stride(2)
-    real(kind=8), allocatable :: res(:,:,:), res_channel(:,:), exp_a(:,:,:)
+    real(kind=8), allocatable :: res(:,:,:), res_channel(:,:)
     integer                   :: a_rows, a_cols, a_channels, k_channels, &
                                  a_i, k_i
     logical                   :: zero_init
@@ -1458,22 +1476,20 @@ subroutine cross_correlate_3D_perms_sum_kernel(a, padding, kernels, stride, res)
     a_channels = size(a, dim=3)
     k_channels = size(kernels, dim=3)
 
-    ! account for stride
-    call expand_with_stride_3D(a, stride, exp_a)
-
     ! convolve each delta channel with corresponding kernel
     ! channel, then sum up the results by input channel
     do k_i = 1, k_channels
         do a_i = 1, a_channels
             ! assumed for deconvolution; use valid rather than full padding
-            call cross_correlate_2D(exp_a(:,:,a_i), 'valid', &
-                                    kernels(:,:,k_i,a_i), [1,1], res_channel)
+            call cross_correlate_2D(a(:,:,a_i), 'valid', &
+                                    kernels(:,:,k_i,a_i), stride, res_channel)
 
             if (.not. zero_init) then
                 ! create new array if not correct size
                 if (allocated(res)) then
                     ! deallocate if wrong size
-                    if (.not. all(shape(res(:,:,1)) == shape(res_channel)) .or. &
+                    if (.not. all(shape(res(:,:,1)) == &
+                                  shape(res_channel)) .or. &
                         size(res, dim=3) /= k_channels) then
                         deallocate(res)
                     else
