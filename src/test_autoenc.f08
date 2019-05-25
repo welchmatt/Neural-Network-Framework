@@ -1,7 +1,11 @@
 !-------------------------------------------------------------------------------
 ! TODO:
-!       * 
+!       * expand to full test with all data
+!       * ensure deconvolution correctness; this works very well
+!         with some random initializations but not others
+!           * implement different weight initializers
 !       * implement proper "prediction" function for images
+!       * add Python helper file to visualize output
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
@@ -39,7 +43,6 @@ program main
                                  train_x(:,:), test_x(:,:)
     integer                   :: train_rows, test_rows, variables, classes, &
                                  pixels, row, i
-    real(kind=8)              :: loss
 
     train_rows = 5
     test_rows = 5
@@ -171,7 +174,7 @@ program main
                                 activ       = 'relu', &
                                 padding     = 'valid')
 
-    call snn%snn_add_conv_layer(kernels     = 64, &
+    call snn%snn_add_conv_layer(kernels     = 32, &
                                 kernel_dims = [6,6], &
                                 stride      = [2,2], &
                                 activ       = 'relu', &
