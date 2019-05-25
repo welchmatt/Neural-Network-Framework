@@ -174,15 +174,13 @@ program main
                                 pool        = 'max', &
                                 padding     = 'valid')
 
-    call snn%snn_add_dense_layer(out_nodes  = 128, &
-                                 activ      = 'relu', &
-                                 ! dropout nodes entering this layer; will
-                                 ! soon implement separate "dropout layer"
-                                 drop_rate  = 0.10)
+    call snn%snn_add_dropout_layer(drop_rate = 0.1)
+    call snn%snn_add_dense_layer(out_nodes   = 128, &
+                                 activ       = 'relu')
 
-    call snn%snn_add_dense_layer(out_nodes  = classes, &
-                                 activ      = 'softmax', &
-                                 drop_rate  = 0.10)
+    call snn%snn_add_dropout_layer(drop_rate = 0.1)
+    call snn%snn_add_dense_layer(out_nodes   = classes, &
+                                 activ       = 'softmax')
 
     call snn%snn_summary()
 
@@ -191,7 +189,7 @@ program main
 
     call snn%snn_fit(conv_input    = train_images, &
                      target_labels = train_y_onehot, &
-                     batch_size    = 256, &
+                     batch_size    = 128, &
                      epochs        = 5, &
                      learn_rate    = 0.1, &
                      loss          = 'cross_entropy', &
