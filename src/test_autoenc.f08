@@ -41,8 +41,8 @@ program main
                                  pixels, row, i
     real(kind=8)              :: loss
 
-    train_rows = 10
-    test_rows = 10
+    train_rows = 5
+    test_rows = 5
     variables = 785
     pixels = variables - 1
     classes = 10
@@ -210,7 +210,7 @@ program main
 
     call snn%snn_fit(conv_input    = train_images, &
                      target_images = train_images, &
-                     batch_size    = 10, &
+                     batch_size    = 5, &
                      epochs        = 20, &
                      learn_rate    = 0.1, &
                      loss          = 'mse', &
