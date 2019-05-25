@@ -15,7 +15,8 @@ implicit none
 
 !===============================================================================
 !===============================================================================
-! procedures with 2D array input require variables-as-columns form
+! procedures with 2D array input require variables-as-columns form;
+! procedures with 4D array input require (rows, columns, channels, batches) form
 !===============================================================================
 !===============================================================================
 
