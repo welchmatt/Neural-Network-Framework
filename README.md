@@ -128,13 +128,17 @@ make xor
 ### test_autoenc.f08
 Currently, this is just a sanity check for deconvolutional layers (convolutional layers with "full" padding).  For now, it creates an autoencoder-style network:
 ```
-----------------------
+ ----------------------
  dimensions:               rows        cols    channels
  -----------
  ConvLayer input:            28          28           1
- ConvLayer output:           26          26          32
- ConvLayer output:           24          24          64
- ConvLayer output:           26          26          32
+ ConvLayer output:           24          24           8
+ ConvLayer output:           20          20          16
+ ConvLayer output:           16          16          32
+ ConvLayer output:            6           6          64
+ ConvLayer output:           16          16          32
+ ConvLayer output:           20          20          16
+ ConvLayer output:           24          24           8
  ConvLayer output:           28          28           1
  -----------
  ----------------------
