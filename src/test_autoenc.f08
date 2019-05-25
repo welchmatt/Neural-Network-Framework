@@ -44,8 +44,8 @@ program main
     integer                   :: train_rows, test_rows, variables, classes, &
                                  pixels, row, i
 
-    train_rows = 5
-    test_rows = 5
+    train_rows = 2
+    test_rows = 2
     variables = 785
     pixels = variables - 1
     classes = 10
@@ -156,25 +156,25 @@ program main
     !-----------------------------------------------------
     ! encoder layers
     call snn%snn_add_conv_layer(input_dims  = [28,28,1],&
-                                kernels     = 8, &
+                                kernels     = 12, &
                                 kernel_dims = [5,5], &
                                 stride      = [1,1], &
                                 activ       = 'relu', &
                                 padding     = 'valid')
 
-    call snn%snn_add_conv_layer(kernels     = 16, &
+    call snn%snn_add_conv_layer(kernels     = 12, &
                                 kernel_dims = [5,5], &
                                 stride      = [1,1], &
                                 activ       = 'relu', &
                                 padding     = 'valid')
 
-    call snn%snn_add_conv_layer(kernels     = 32, &
+    call snn%snn_add_conv_layer(kernels     = 12, &
                                 kernel_dims = [5,5], &
                                 stride      = [1,1], &
                                 activ       = 'relu', &
                                 padding     = 'valid')
 
-    call snn%snn_add_conv_layer(kernels     = 32, &
+    call snn%snn_add_conv_layer(kernels     = 12, &
                                 kernel_dims = [6,6], &
                                 stride      = [2,2], &
                                 activ       = 'relu', &
@@ -182,19 +182,19 @@ program main
 
     !-----------------------------------------------------
     ! decoder layers
-    call snn%snn_add_conv_layer(kernels     = 32, &
+    call snn%snn_add_conv_layer(kernels     = 12, &
                                 kernel_dims = [6,6], &
                                 stride      = [2,2], &
                                 activ       = 'relu', &
                                 padding     = 'full')
 
-    call snn%snn_add_conv_layer(kernels     = 16, &
+    call snn%snn_add_conv_layer(kernels     = 12, &
                                 kernel_dims = [5,5], &
                                 stride      = [1,1], &
                                 activ       = 'relu', &
                                 padding     = 'full')
 
-    call snn%snn_add_conv_layer(kernels     = 8, &
+    call snn%snn_add_conv_layer(kernels     = 12, &
                                 kernel_dims = [5,5], &
                                 stride      = [1,1], &
                                 activ       = 'relu', &
@@ -213,9 +213,9 @@ program main
 
     call snn%snn_fit(conv_input    = train_images, &
                      target_images = train_images, &
-                     batch_size    = 5, &
-                     epochs        = 20, &
-                     learn_rate    = 0.1, &
+                     batch_size    = 2, &
+                     epochs        = 60, &
+                     learn_rate    = 0.002, &
                      loss          = 'mse', &
                      verbose       = 2)
 
