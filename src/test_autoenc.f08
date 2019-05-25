@@ -1,11 +1,7 @@
 !-------------------------------------------------------------------------------
 ! TODO:
-!       * expand to full test with all data
-!       * ensure deconvolution correctness; this works very well
-!         with some random initializations but not others
-!           * implement different weight initializers
-!       * implement proper "prediction" function for images
-!       * add Python helper file to visualize output
+!       * currently a sanity check on one train image:
+!           * expand to full test with all data
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
@@ -40,12 +36,12 @@ program main
     class(SeqNN), pointer     :: snn
     real(kind=8), allocatable :: image(:,:,:), train_images(:,:,:,:), &
                                  test_images(:,:,:,:), train(:,:), test(:,:), &
-                                 train_x(:,:), test_x(:,:)
+                                 train_x(:,:), test_x(:,:), recos(:,:,:,:)
     integer                   :: train_rows, test_rows, variables, classes, &
                                  pixels, row, i
 
-    train_rows = 2
-    test_rows = 2
+    train_rows = 1
+    test_rows = 1
     variables = 785
     pixels = variables - 1
     classes = 10
@@ -213,18 +209,30 @@ program main
 
     call snn%snn_fit(conv_input    = train_images, &
                      target_images = train_images, &
-                     batch_size    = 2, &
-                     epochs        = 60, &
-                     learn_rate    = 0.002, &
+                     batch_size    = 1, &
+                     epochs        = 1000, &
+                     learn_rate    = 0.001, &
                      loss          = 'mse', &
                      verbose       = 2)
 
     !---------------------------------------------------------------------------
-    ! store output (reconstruction) to file to visualize
+    ! "predict" reconstructions on TRAIN data for now; sanity check
+
+    call snn%snn_predict_images(conv_input = train_images, &
+                                res        = recos)
+
+    !---------------------------------------------------------------------------
+    ! store outputs (reconstruction) to file to visualize
 
     ! overwrite file (if it exists), start first row
     call write_array_2D(snn%cnn%output%a(:,:,1,1), &
                             'output-data/autoenc_reco.csv', .false.)
+
+    do i = 2, size(test_images, dim=4)
+        ! append remaining rows
+        call write_array_2D(snn%cnn%output%a(:,:,1,i), &
+                            'output-data/autoenc_reco.csv', .true.)
+    end do
 
     !---------------------------------------------------------------------------
 

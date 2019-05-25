@@ -54,7 +54,7 @@ contains
                                snn_init, snn_forw_prop, snn_cnn_out_delta, &
                                snn_back_prop, snn_update, snn_fit, &
                                snn_one_hot_accuracy, snn_regression_loss, &
-                               snn_predict, snn_summary
+                               snn_predict, snn_predict_images, snn_summary
 end type
 contains
 
@@ -1015,7 +1015,7 @@ end function
 ! must only pass dense_input if no ConvLayers present
 !-------------------------------------------------------------------------------
 ! this:         (SeqNN - implicitly passed)
-! res:          (:,:) stores predictions; prediction rows correspond to input
+! res:          (real(:,:)) stores predictions (rows correspond to input)
 !
 ! conv_input:   (optional - real(:,:,:,:)) input for ConvLayers
 ! dense_input:  (optional - real(:,:)) input for DenseLayers
@@ -1036,7 +1036,7 @@ subroutine snn_predict(this, res, conv_input, dense_input)
         ! cnn present; must only pass conv_input
         if (.not. present(conv_input) .or. present(dense_input)) then
             print *, '-----------------------------------------'
-            print *, '(sequential_neural_net :: snn_fit)'
+            print *, '(sequential_neural_net :: snn_predict)'
             print *, 'ConvLayers present: only pass conv_input.'
             print *, '-----------------------------------------'
             stop -1
@@ -1047,7 +1047,7 @@ subroutine snn_predict(this, res, conv_input, dense_input)
         ! cnn not present; must only pass dense_input
         if (.not. present(dense_input) .or. present(conv_input)) then
             print *, '----------------------------------------------'
-            print *, '(sequential_neural_net :: snn_fit)'
+            print *, '(sequential_neural_net :: snn_predict)'
             print *, 'ConvLayers not present: only pass dense_input.'
             print *, '----------------------------------------------'
             stop -1
@@ -1122,6 +1122,121 @@ subroutine snn_predict(this, res, conv_input, dense_input)
 
         ! fill last section of predictions with remaining items
         res(input_i:, :) = this%dnn%output%a(:remain, :)
+    end if
+end subroutine
+
+!-------------------------------------------------------------------------------
+! handles predicting images with trained SeqNN on all given input data
+!
+! only used for fully-convolutional SeqNN
+!-------------------------------------------------------------------------------
+! this:         (SeqNN - implicitly passed)
+! res:          (real(:,:,:,:)) stores predictions
+! conv_input:   (real(:,:,:,:)) input for ConvLayers
+!-------------------------------------------------------------------------------
+! alters ::     res becomes predictions of this SeqNN on input data
+!-------------------------------------------------------------------------------
+subroutine snn_predict_images(this, res, conv_input)
+    class(SeqNN)                       :: this
+    real(kind=8), allocatable          :: res(:,:,:,:), conv_x(:,:,:,:)
+    real(kind=8), intent(in), optional :: conv_input(:,:,:,:)
+    integer                            :: batch_size, items, batches, input_i, &
+                                          i, remain
+    logical                            :: pooled
+
+    pooled = associated(this%cnn%output%next_pool)
+    batch_size = this%batch_size
+
+    if (.not. associated(this%cnn) .or. associated(this%dnn)) then
+        print *, '---------------------------------------------'
+        print *, '(sequential_neural_net :: snn_predict_images)'
+        print *, 'only use with fully-convolutional SeqNN.'
+        print *, '---------------------------------------------'
+        stop -1
+    end if
+
+    items = size(conv_input, dim=4)
+
+    ! whole batch count; truncating remainder skips last partial batch
+    batches = items / batch_size
+    input_i = 1 ! index of batch examples in input
+
+    ! calculate output dimensions based on pooling; allocate prediction batch
+    if (pooled) then
+        if (allocated(res)) then
+            if (.not. all(shape(res) == &
+                          [this%cnn%output%next_pool%out_rows, &
+                           this%cnn%output%next_pool%out_cols, &
+                           this%cnn%output%next_pool%out_channels, items])) then
+                deallocate(res)
+            end if
+        end if
+
+        if (.not. allocated(res)) then
+            allocate(res(this%cnn%output%next_pool%out_rows, &
+                         this%cnn%output%next_pool%out_cols, &
+                         this%cnn%output%next_pool%out_channels, items))
+        end if
+    else
+        ! no pooling
+        if (allocated(res)) then
+            if (.not. all(shape(res) == &
+                          [this%cnn%output%out_rows, &
+                           this%cnn%output%out_cols, &
+                           this%cnn%output%out_channels, items])) then
+                deallocate(res)
+            end if
+        end if
+
+        if (.not. allocated(res)) then
+            allocate(res(this%cnn%output%out_rows, &
+                         this%cnn%output%out_cols, &
+                         this%cnn%output%out_channels, items))
+        end if
+    end if
+
+    do i = 1, batches
+        ! extract whole input batch (slice the batch items starting at i)
+        conv_x = conv_input(:,:,:,(i-1)*batch_size+1:i*batch_size)
+        call this%snn_forw_prop(.false., conv_batch=conv_x)
+
+        ! record predictions
+        if (pooled) then
+            res(:,:,:,input_i:input_i+batch_size-1) = &
+                    this%cnn%output%next_pool%a
+        else
+            res(:,:,:,input_i:input_i+batch_size-1) = &
+                    this%cnn%output%a
+        end if
+        
+        input_i = input_i + batch_size
+    end do
+
+    ! predict for remaining inputs that were truncated above
+    remain = items - batches * batch_size
+
+    if (remain > 0) then
+        ! handle if batch wasn't already made
+        if (.not. allocated(conv_x)) then
+            allocate(conv_x(this%cnn%in_dims(1), &
+                            this%cnn%in_dims(2), &
+                            this%cnn%in_dims(3), &
+                            batch_size))
+        end if
+
+        conv_x = 0
+
+        ! batch currently allocated to proper batch shape;
+        ! overwrite the items we need, ignore remainder
+        conv_x(:,:,:,:remain) = conv_input(:,:,:,items-remain+1:)
+        call this%snn_forw_prop(.false., conv_batch=conv_x)
+
+        ! record predictions
+        if (pooled) then
+            res(:,:,:,input_i:) = this%cnn%output%next_pool%a(:,:,:,:remain)
+        else
+            res(:,:,:,input_i:) = this%cnn%output%a(:,:,:,:remain)
+        end if
     end if
 end subroutine
 
