@@ -1055,7 +1055,7 @@ end subroutine
 
 !-------------------------------------------------------------------------------
 ! calculates the convolution between a 3D array and a 3D kernel;
-! kernel channels match base array channels, so the output is 2D
+! kernel channels must match base array channels, so the output is 2D
 !-------------------------------------------------------------------------------
 ! a:        (real(:,:,:)) base array
 ! padding:  (characters) padding type
@@ -1523,8 +1523,8 @@ end subroutine
 ! res:         (real(:,:)) stores pooled output
 ! res_idxs:    (real(:,:,:)) stores chosen max indices
 !-------------------------------------------------------------------------------
-! alters :: - res becomes max pooling result
-!           - res_idxs matches res (rows, cols), where third dimension of size 2
+! alters :: * res becomes max pooling result
+!           * res_idxs matches res (rows, cols), where third dimension of size 2
 !             is the index (Y, X) of the max value in the padded original array;
 !             -1 where max value is in padding, not original array
 !-------------------------------------------------------------------------------
@@ -1623,7 +1623,7 @@ end subroutine
 !                4th dimension channels,
 !                first three dimensions match those returned by res_idxs
 !                from max_pool_2D (see description above);
-!               -1 where max value in padding, not original array
+!                -1 where max value in padding, not original array
 !-------------------------------------------------------------------------------
 subroutine max_pool_3D(a, padding, kernel_dims, stride, res, res_idxs)
     real(kind=8), intent(in)  :: a(:,:,:)
