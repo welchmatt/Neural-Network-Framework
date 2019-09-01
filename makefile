@@ -7,7 +7,7 @@
 # Matt Welch
 #-------------------------------------------------------------------------------
 
-FC = gfortran-8
+FC = gfortran
 FFLAGS = -O3
 
 # uncomment FFLAGS below for debugging (overrides FFLAGS above)

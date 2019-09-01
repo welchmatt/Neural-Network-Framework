@@ -58,7 +58,6 @@ program main
     print *, '----------------------'
     print *, 'prediction:'
     print *, prediction
-    print *, 
     print *, 'actual:'
     print *, Y
     print *, '----------------------'
