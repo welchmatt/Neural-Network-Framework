@@ -307,16 +307,17 @@ end subroutine
 ! input:      (real(:,:,:,:)) input batch
 ! learn_rate: (real) scale factor for change in kernels and biases
 ! is_train:   (logical) in training iteration
+! avg_deltas: (logical) average deltas across batch for update
 !-------------------------------------------------------------------------------
 ! alters ::   this ConvNN's kernels and biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
-subroutine cnn_update(this, input, learn_rate, is_train)
+subroutine cnn_update(this, input, learn_rate, is_train, avg_deltas)
     class(ConvNN)            :: this
     real(kind=8), intent(in) :: input(:,:,:,:)
     real, intent(in)         :: learn_rate
-    logical, intent(in)      :: is_train
+    logical, intent(in)      :: is_train, avg_deltas
 
     ! first hid a(l-1) is input batch
-    call this%first_hid%conv_update(input, learn_rate, is_train)
+    call this%first_hid%conv_update(input, learn_rate, is_train, avg_deltas)
 end subroutine
 end module

@@ -240,29 +240,35 @@ end subroutine
 ! input:      (real(:,:)) previous layer activations
 ! learn_rate: (real) scale factor for change in weights and biases
 ! is_train:   (logical) in training iteration
+! avg_deltas: (logical) average deltas across batch for update
 !-------------------------------------------------------------------------------
 ! alters ::   this DenseLayer's weights and biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
-subroutine dense_update(this, input, learn_rate, is_train)
-    class(DenseLayer)         :: this
-    real(kind=8), intent(in)  :: input(:,:)
-    real, intent(in)          :: learn_rate
-    logical, intent(in)       :: is_train
-    real(kind=8), allocatable :: avg_change_row(:), delta_w(:,:)
-    real(kind=8)              :: scale
-    integer                   :: r
+subroutine dense_update(this, input, learn_rate, is_train, avg_deltas)
+    class(DenseLayer)             :: this
+    real(kind=8), intent(in)      :: input(:,:)
+    real, intent(in)              :: learn_rate
+    logical, intent(in)           :: is_train, avg_deltas
+    real(kind=8), allocatable     :: avg_change_row(:), delta_w(:,:)
+    real(kind=8)                  :: scale
+    integer                       :: r
 
-    ! multiply by learn_rate, then average across all examples in batch
-    scale = learn_rate / this%batch_size
+    ! multiply deltas by learn_rate
+    scale = learn_rate
+
+    ! if avg_deltas, find average across batch
+    if (avg_deltas) then
+        scale = scale / this%batch_size
+    end if
 
     ! weights:
     ! w = w - avg_change (also handling dropout)
     ! avg_change = matmul(transpose(a(l-1)), delta(l)) * scale
     if (this%drop_rate > 0 .and. is_train) then
         call this%dense_dropout_rand() ! randomize dropout
-        call dgemm_wrapper(input*this%drop, this%d, delta_w, transa = .true.)
+        call dgemm_wrapper(input*this%drop, this%d, delta_w, transa=.true.)
     else
-        call dgemm_wrapper(input, this%d, delta_w, transa = .true.) ! no drops
+        call dgemm_wrapper(input, this%d, delta_w, transa=.true.) ! no drops
     end if
 
     delta_w = delta_w * scale
@@ -291,7 +297,8 @@ subroutine dense_update(this, input, learn_rate, is_train)
 
     ! traverse next layers
     if (associated(this%next_layer)) then
-        call this%next_layer%dense_update(this%a, learn_rate, is_train)
+        call this%next_layer%dense_update(this%a, learn_rate, is_train, &
+                                          avg_deltas)
     end if
 end subroutine
 end module

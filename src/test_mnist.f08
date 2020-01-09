@@ -193,7 +193,8 @@ program main
                      epochs        = 5, &
                      learn_rate    = 0.1, &
                      loss          = 'cross_entropy', &
-                     verbose       = 2)
+                     verbose       = 2, &
+                     avg_deltas    = .true.)
 
     !---------------------------------------------------------------------------
     ! check network accuracy on test data

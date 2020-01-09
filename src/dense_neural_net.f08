@@ -257,16 +257,17 @@ end subroutine
 ! input:      (real(:,:)) input batch
 ! learn_rate: (real) scale factor for change in weights and biases
 ! is_train:   (logical) in training iteration
+! avg_deltas: (logical) average deltas across batch for update
 !-------------------------------------------------------------------------------
 ! alters ::   this DenseNN's weights and biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
-subroutine dnn_update(this, input, learn_rate, is_train)
+subroutine dnn_update(this, input, learn_rate, is_train, avg_deltas)
     class(DenseNN)           :: this
     real(kind=8), intent(in) :: input(:,:)
     real, intent(in)         :: learn_rate
-    logical, intent(in)      :: is_train
+    logical, intent(in)      :: is_train, avg_deltas
 
     ! first_hid's a(l-1) is input batch
-    call this%first_hid%dense_update(input, learn_rate, is_train)
+    call this%first_hid%dense_update(input, learn_rate, is_train, avg_deltas)
 end subroutine
 end module

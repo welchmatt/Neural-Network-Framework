@@ -47,7 +47,8 @@ program main
                      epochs        = 10000, &
                      learn_rate    = 0.4, &
                      loss          = 'mse', &
-                     verbose       = 2)
+                     verbose       = 2, &
+                     avg_deltas    = .true.)
 
     !---------------------------------------------------------------------------
     ! check prediction for each case

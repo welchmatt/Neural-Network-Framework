@@ -523,17 +523,19 @@ end subroutine
 ! this:        (SeqNN - implicitly passed)
 ! learn_rate:  (real) scale factor for change in kernels and biases
 ! is_train:    (logical) in training iteration
+! avg_deltas:  (logical) average deltas across batch for update
 !
 ! conv_batch:  (optional - real(:,:,:,:)) input batch for ConvLayers
 ! dense_batch: (optional - real(:,:)) input batch for DenseLayers
 !-------------------------------------------------------------------------------
 ! alters ::    this SeqNN's kernels, weights, biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
-subroutine snn_update(this, learn_rate, is_train, conv_batch, dense_batch)
+subroutine snn_update(this, learn_rate, is_train, avg_deltas, &
+                      conv_batch, dense_batch)
     class(SeqNN)                       :: this
     real, intent(in)                   :: learn_rate
     real(kind=8), intent(in), optional :: conv_batch(:,:,:,:), dense_batch(:,:)
-    logical, intent(in)                :: is_train
+    logical, intent(in)                :: is_train, avg_deltas
     real(kind=8), allocatable          :: dnn_batch(:,:)
     integer                            :: i
 
@@ -547,7 +549,7 @@ subroutine snn_update(this, learn_rate, is_train, conv_batch, dense_batch)
             stop -1
         end if
 
-        call this%cnn%cnn_update(conv_batch, learn_rate, is_train)
+        call this%cnn%cnn_update(conv_batch, learn_rate, is_train, avg_deltas)
 
         ! stop here if no dnn to feed into
         if (.not. associated(this%dnn)) then
@@ -585,7 +587,7 @@ subroutine snn_update(this, learn_rate, is_train, conv_batch, dense_batch)
 
     ! update through dnn (either from cnn or direct input)
     if (associated(this%dnn)) then
-        call this%dnn%dnn_update(dnn_batch, learn_rate, is_train)
+        call this%dnn%dnn_update(dnn_batch, learn_rate, is_train, avg_deltas)
     end if
 end subroutine
 
@@ -606,24 +608,33 @@ end subroutine
 ! target_labels: (optional - real(:,:)) all targets we are trying to predict
 ! target_images: (optional - real(:,:,:,:)) all images we are trying to predict
 ! verbose:       (optional - integer) 0 = none, 1 = epochs, 2 = 1 + batch status
+! avg_deltas:    (optional - logical) average deltas across batch for update
 !-------------------------------------------------------------------------------
 ! alters ::    - this SeqNN fit to minimize loss on training data
 !              - target_labels, [conv_input, dense_input] shuffled in place
 !-------------------------------------------------------------------------------
 subroutine snn_fit(this, batch_size, epochs, learn_rate, loss, &
                    conv_input, dense_input, verbose, &
-                   target_labels, target_images)
-    class(SeqNN)              :: this
-    integer, intent(in)       :: batch_size, epochs
-    real, intent(in)          :: learn_rate
-    character(*), intent(in)  :: loss
-    real(kind=8), optional    :: conv_input(:,:,:,:), dense_input(:,:), &
-                                 target_labels(:,:), target_images(:,:,:,:)
-    integer, optional         :: verbose
-    real(kind=8), allocatable :: conv_x(:,:,:,:), dense_x(:,:), &
-                                 labels(:,:), images(:,:,:,:)
-    integer                   :: batches, input_i, i, j
-    real(kind=8)              :: loss_val
+                   target_labels, target_images, avg_deltas)
+    class(SeqNN)                  :: this
+    integer, intent(in)           :: batch_size, epochs
+    real, intent(in)              :: learn_rate
+    character(*), intent(in)      :: loss
+    real(kind=8), optional        :: conv_input(:,:,:,:), dense_input(:,:), &
+                                     target_labels(:,:), target_images(:,:,:,:)
+    integer, optional             :: verbose
+    logical, intent(in), optional :: avg_deltas
+    real(kind=8), allocatable     :: conv_x(:,:,:,:), dense_x(:,:), &
+                                     labels(:,:), images(:,:,:,:)
+    integer                       :: batches, input_i, i, j
+    real(kind=8)                  :: loss_val
+    logical                       :: avg_deltas_use
+
+    if (present(avg_deltas) .and. avg_deltas) then
+        avg_deltas_use = .true.
+    else
+        avg_deltas_use = .false.
+    end if
 
     if (.not. this%is_init) then
         call this%snn_init(batch_size)
@@ -653,6 +664,14 @@ subroutine snn_fit(this, batch_size, epochs, learn_rate, loss, &
 
         ! whole batch count; truncating remainder skips last partial batch
         batches = size(dense_input, dim=1) / batch_size
+    end if
+
+    if (batches == 0) then
+        print *, '--------------------------------------------------'
+        print *, '(sequential_neural_net :: snn_fit)'
+        print *, 'no batches: ensure batch_size <= training examples'
+        print *, '--------------------------------------------------'
+        stop -1
     end if
 
     if (associated(this%dnn)) then
@@ -713,7 +732,8 @@ subroutine snn_fit(this, batch_size, epochs, learn_rate, loss, &
 
                     call this%snn_forw_prop(.true., conv_batch=conv_x)
                     call this%snn_back_prop(loss, target_labels=labels)
-                    call this%snn_update(learn_rate, .true., conv_batch=conv_x)
+                    call this%snn_update(learn_rate, .true., avg_deltas_use, &
+                                         conv_batch=conv_x)
                 else
                     ! cnn input and output
                     conv_x = conv_input(:,:,:,input_i:input_i+batch_size-1)
@@ -721,7 +741,8 @@ subroutine snn_fit(this, batch_size, epochs, learn_rate, loss, &
 
                     call this%snn_forw_prop(.true., conv_batch=conv_x)
                     call this%snn_back_prop(loss, target_images=images)
-                    call this%snn_update(learn_rate, .true., conv_batch=conv_x)
+                    call this%snn_update(learn_rate, .true., avg_deltas_use, &
+                                         conv_batch=conv_x)
                 end if
             else
                 ! dnn input and output
@@ -730,7 +751,8 @@ subroutine snn_fit(this, batch_size, epochs, learn_rate, loss, &
 
                 call this%snn_forw_prop(.true., dense_batch=dense_x)
                 call this%snn_back_prop(loss, target_labels=labels)
-                call this%snn_update(learn_rate, .true., dense_batch=dense_x)
+                call this%snn_update(learn_rate, .true., avg_deltas_use, &
+                                     dense_batch=dense_x)
             end if
 
             ! move index to start of next batch
@@ -786,8 +808,8 @@ end subroutine
 ! must only pass conv_input if ConvLayers in SeqNN, otherwise
 ! must only pass dense_input if no ConvLayers present
 !-------------------------------------------------------------------------------
-! this:        (SeqNN - implicitly passed)
-! loss:        (characters) loss function
+! this:          (SeqNN - implicitly passed)
+! loss:          (characters) loss function
 !
 ! conv_input:    (optional - real(:,:,:,:)) input for ConvLayers
 ! dense_input:   (optional - real(:,:)) input for DenseLayers
@@ -835,6 +857,14 @@ real(kind=8) function snn_regression_loss(this, loss, conv_input, dense_input, &
 
         ! whole batch count; truncating remainder skips last partial batch
         batches = size(dense_input, dim=1) / batch_size
+    end if
+
+    if (batches == 0) then
+        print *, '----------------------------------------------'
+        print *, '(sequential_neural_net :: snn_regression_loss)'
+        print *, 'no batches: ensure batch_size <= test examples'
+        print *, '----------------------------------------------'
+        stop -1
     end if
 
     if (associated(this%dnn)) then

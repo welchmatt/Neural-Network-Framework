@@ -93,7 +93,7 @@ function create_conv_layer(input_dims, kernels, kernel_dims, stride, &
                            activ, padding, drop_rate)
     class(ConvLayer), pointer :: create_conv_layer
     integer, intent(in)       :: input_dims(3), kernels, kernel_dims(2), &
-                                  stride(2)
+                                 stride(2)
     character(*), intent(in)  :: activ, padding
     real, intent(in)          :: drop_rate
     integer                   :: pad_rows, final_rows, pad_cols, final_cols, &
@@ -383,19 +383,20 @@ end subroutine
 ! input0:     (real(:,:,:,:)) previous layer activations
 ! learn_rate: (real) scale factor for change in kernels and biases
 ! is_train:   (logical) in training iteration
+! avg_deltas: (logical) average deltas across batch for update
 !-------------------------------------------------------------------------------
 ! alters ::   this ConvLayer's kernels and biases adjusted to minimize loss
 !-------------------------------------------------------------------------------
-subroutine conv_update(this, input0, learn_rate, is_train)
-    class(ConvLayer)          :: this
-    real(kind=8), intent(in)  :: input0(:,:,:,:)
-    real, intent(in)          :: learn_rate
-    logical, intent(in)       :: is_train
-    real(kind=8), allocatable :: input(:,:,:,:), total_k_change(:,:,:,:), &
-                                 k_change(:,:,:,:), chan_avgs(:,:,:), &
-                                 chan_biases(:)
-    real                      :: scale
-    integer                   :: i
+subroutine conv_update(this, input0, learn_rate, is_train, avg_deltas)
+    class(ConvLayer)              :: this
+    real(kind=8), intent(in)      :: input0(:,:,:,:)
+    real, intent(in)              :: learn_rate
+    logical, intent(in)           :: is_train, avg_deltas
+    real(kind=8), allocatable     :: input(:,:,:,:), total_k_change(:,:,:,:), &
+                                     k_change(:,:,:,:), chan_avgs(:,:,:), &
+                                     chan_biases(:)
+    real                          :: scale
+    integer                       :: i
 
     if (this%drop_rate > 0 .and. is_train) then
         call this%conv_dropout_rand() ! randomize dropout
@@ -433,9 +434,13 @@ subroutine conv_update(this, input0, learn_rate, is_train)
 
         total_k_change = total_k_change + k_change
     end do
+    
+    ! multiply deltas by learn_rate
+    scale = learn_rate
 
-    ! multiply by learn_rate, then average across all examples in batch
-    scale = learn_rate / this%batch_size
+    if (avg_deltas) then
+        scale = scale / this%batch_size
+    end if 
 
     ! weights updated on average change
     this%k = this%k - total_k_change * scale
@@ -459,10 +464,11 @@ subroutine conv_update(this, input0, learn_rate, is_train)
     if (associated(this%next_layer)) then
         if (associated(this%next_pool)) then
             ! prop pooled output
-            call this%next_layer%conv_update(this%next_pool%a, &
-                                             learn_rate, is_train)
+            call this%next_layer%conv_update(this%next_pool%a, learn_rate, &
+                                             is_train, avg_deltas)
         else
-            call this%next_layer%conv_update(this%a, learn_rate, is_train)
+            call this%next_layer%conv_update(this%a, learn_rate, &
+                                             is_train, avg_deltas)
         end if
     end if
 end subroutine
