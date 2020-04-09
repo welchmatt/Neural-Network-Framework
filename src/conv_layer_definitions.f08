@@ -1,8 +1,6 @@
 !-------------------------------------------------------------------------------
 ! implementation of a convolutional/deconvolutional layer type (ConvLayer)
 !-------------------------------------------------------------------------------
-! Matt Welch
-!-------------------------------------------------------------------------------
 
 module conv_layer_definitions
 use net_helper_procedures
