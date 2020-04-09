@@ -2,8 +2,6 @@
 ! sequential neural network implementation that utilizes ConvLayers, PoolLayers,
 ! and DenseLayers in "sequence" (hence the name sequential - based on Keras)
 !-------------------------------------------------------------------------------
-! Matt Welch
-!-------------------------------------------------------------------------------
 
 module sequential_neural_net
 use net_helper_procedures

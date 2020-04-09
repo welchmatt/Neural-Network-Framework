@@ -2,8 +2,6 @@
 ! helper functions for arrays; these are utilized by neural network structures,
 ! but can be used on arrays in general
 !-------------------------------------------------------------------------------
-! Matt Welch
-!-------------------------------------------------------------------------------
 
 module net_helper_procedures
 implicit none

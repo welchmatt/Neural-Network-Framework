@@ -2,8 +2,6 @@
 ! neural network implementation that utilizes DenseLayers
 ! (from dense_layer_definitions.f08)
 !-------------------------------------------------------------------------------
-! Matt Welch
-!-------------------------------------------------------------------------------
 
 module dense_neural_net
 use net_helper_procedures

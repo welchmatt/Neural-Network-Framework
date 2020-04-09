@@ -1,8 +1,6 @@
 !-------------------------------------------------------------------------------
 ! implementation for a dense, fully-connected layer type (DenseLayer)
 !-------------------------------------------------------------------------------
-! Matt Welch
-!-------------------------------------------------------------------------------
 
 module dense_layer_definitions
 use net_helper_procedures
